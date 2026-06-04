@@ -13,7 +13,33 @@ import { Box, IconButton, Stack, Typography } from '@mui/material';
 import PageShell from '../components/PageShell.js';
 import PhoneFrame from '../components/PhoneFrame.js';
 
-const poster = (seed, w = 360, h = 520) => `https://picsum.photos/seed/${seed}/${w}/${h}`;
+const assetPosters = [
+  '/assets/anime-01.jpg',
+  '/assets/anime-02.jpg',
+  '/assets/anime-03.jpg',
+  '/assets/anime-04.jpg',
+  '/assets/anime-05.jpg',
+  '/assets/anime-06.jpg',
+  '/assets/anime-07.jpg',
+  '/assets/anime-08.jpg',
+  '/assets/anime-09.jpg',
+  '/assets/anime-10.jpg',
+  '/assets/anime-11.jpg',
+  '/assets/anime-12.jpg',
+  '/assets/anime-13.jpg'
+];
+
+const poster = (image, w = 360, h = 520) => {
+  if (image?.startsWith('/')) return image;
+
+  const index = Math.abs(
+    String(image || 'anime')
+      .split('')
+      .reduce((total, char) => total + char.charCodeAt(0), 0)
+  ) % assetPosters.length;
+
+  return assetPosters[index] || `/assets/anime-01.jpg?w=${w}&h=${h}`;
+};
 
 const go = (path) => {
   window.location.href = path;
@@ -28,48 +54,48 @@ const getCurrentUser = () => {
 };
 
 const comingSoon = [
-  ['Hori san to Miyamura kun', 'hori'],
-  ['Mushoku Tensei', 'mushoku'],
-  ['Shaman King 2', 'shaman-king'],
-  ['How not to summon a...', 'summon']
+  ['Kiếm Vực Trường Sinh', '/assets/anime-02.jpg'],
+  ['Long Huyết Chiến Thần', '/assets/anime-03.jpg'],
+  ['Băng Thành Dị Giới', '/assets/anime-04.jpg'],
+  ['Thần Ấn Lưu Ly', '/assets/anime-05.jpg']
 ];
 
 const latestAnime = [
-  ['Ryakuyakko shimai shita', '432k view', 'Tap 10', 'ryakuyakko'],
-  ['Super Cub', '322k view', 'Tap 107', 'super-cub'],
-  ['Detective Conan', '723k view', 'Tap moi', 'conan'],
-  ['Bakuten!!', '75k view', 'Tap 09', 'bakuten'],
-  ['Blue Reflection Ray', '110k view', 'Tap 09', 'blue-reflection'],
-  ['Fumetsu no Anata e', '119k view', 'Tap 09', 'fumetsu'],
-  ['Shadow House', '205k view', 'Tap 03', 'shadow-house'],
-  ['Monster Strike', '600k view', 'Tap 10', 'monster-strike'],
-  ['SSSS.DYNAZENON', '853k view', 'Tap 10', 'dynazenon']
+  ['Tuyết Ưng Lĩnh Chủ: Huyết Chiến Băng Thành', '982k lượt xem', 'Tập 01', '/assets/anime-01.jpg'],
+  ['Vạn Cổ Kiếm Tôn', '756k lượt xem', 'Tập 18', '/assets/anime-06.jpg'],
+  ['Thiên Đạo Huyền Sư', '612k lượt xem', 'Tập 12', '/assets/anime-07.jpg'],
+  ['Long Tộc Trỗi Dậy', '723k lượt xem', 'Tập mới', '/assets/anime-08.jpg'],
+  ['Ma Vực Phong Thần', '488k lượt xem', 'Tập 09', '/assets/anime-09.jpg'],
+  ['Hỏa Phụng Liên Thành', '417k lượt xem', 'Tập 22', '/assets/anime-10.jpg'],
+  ['Tinh Hà Chiến Kỷ', '365k lượt xem', 'Tập 15', '/assets/anime-11.jpg'],
+  ['Thương Khung Bí Sử', '289k lượt xem', 'Tập 06', '/assets/anime-12.jpg'],
+  ['Ngự Kiếm Sơn Hà', '842k lượt xem', 'Tập 30', '/assets/anime-13.jpg']
 ];
 
 const ranking = [
-  ['Naruto Shippuden', '500/500 tap', '62,925,535 view', 'naruto'],
-  ['Nanatsu no Taizai', '98/100 tap', '17,616,136 view', 'taizai'],
-  ['One Piece', '1088/1100 tap', '22,320,110 view', 'one-piece-rank']
+  ['Tuyết Ưng Lĩnh Chủ', '60/60 tập', '62,925,535 lượt xem', '/assets/anime-01.jpg'],
+  ['Vạn Cổ Kiếm Tôn', '42/48 tập', '17,616,136 lượt xem', '/assets/anime-06.jpg'],
+  ['Long Tộc Trỗi Dậy', '35/40 tập', '22,320,110 lượt xem', '/assets/anime-08.jpg']
 ];
 
 const news = [
-  ['Anime Bokutachi no Remake tung trailer moi cung ngay ra mat chinh thuc', 'Tin tuc Anime / 8 gio truoc', '512k view', 'news-remake'],
-  ['He lo dan dien vien moi cho anime Shuumatsu No Harem', 'Tin tuc Anime / 1 ngay truoc', '203k view', 'news-harem'],
-  ['Shaman King cong bo cac dien vien vao vai BoZ Brothers', 'Tin tuc Anime / 1 ngay truoc', '609k view', 'news-shaman'],
-  ['Dau An Rong Thieng cong bo dan dien vien moi', 'Tin tuc Anime / 2 ngay truoc', '434k view', 'news-dragon'],
-  ['Manga Maouessou! Opening Act chinh thuc khep loi', 'Tin tuc Anime / 3 ngay truoc', '417k view', 'news-maou']
+  ['Tuyết Ưng Lĩnh Chủ hé lộ trận chiến cuối tại Băng Thành', 'Tin tức Anime / 8 giờ trước', '512k lượt xem', '/assets/anime-01.jpg'],
+  ['Vạn Cổ Kiếm Tôn công bố teaser mùa mới', 'Tin tức Anime / 1 ngày trước', '203k lượt xem', '/assets/anime-06.jpg'],
+  ['Long Tộc Trỗi Dậy xác nhận lịch chiếu tập đặc biệt', 'Tin tức Anime / 1 ngày trước', '609k lượt xem', '/assets/anime-08.jpg'],
+  ['Ma Vực Phong Thần giới thiệu nhân vật phản diện mới', 'Tin tức Anime / 2 ngày trước', '434k lượt xem', '/assets/anime-09.jpg'],
+  ['Tinh Hà Chiến Kỷ mở sự kiện xem trước tập 15', 'Tin tức Anime / 3 ngày trước', '417k lượt xem', '/assets/anime-11.jpg']
 ];
 
 const manga = [
-  ['One piece', 'one-piece'],
-  ['Dr Stone', 'dr-stone'],
-  ['One Punch Man', 'opm'],
-  ['Black Clover', 'black-clover'],
-  ['Boruto', 'boruto'],
-  ['Release that Witch!', 'witch'],
-  ['Spy X Family', 'spy-family'],
-  ['Rougo Ni Sonaete...', 'rougo'],
-  ['Blue Lock', 'blue-lock']
+  ['Kiếm Ảnh Huyền Môn', '/assets/anime-02.jpg'],
+  ['Bí Lục Long Thành', '/assets/anime-03.jpg'],
+  ['Thần Hỏa Lưu Ly', '/assets/anime-04.jpg'],
+  ['Phong Vân Cửu Châu', '/assets/anime-05.jpg'],
+  ['Đế Tôn Tái Sinh', '/assets/anime-07.jpg'],
+  ['Huyết Nguyệt Sơn Hải', '/assets/anime-09.jpg'],
+  ['Linh Vực Ký', '/assets/anime-10.jpg'],
+  ['Tinh Hà Truyền Thuyết', '/assets/anime-11.jpg'],
+  ['Ngự Kiếm Vấn Đạo', '/assets/anime-13.jpg']
 ];
 
 function Header({ onNotice }) {
@@ -82,7 +108,7 @@ function Header({ onNotice }) {
       <IconButton size="small" onClick={() => go('/menu')} sx={{ color: isLight ? '#242424' : '#d8d8d8' }}>
         <MenuIcon sx={{ fontSize: { xs: 20, md: 26 } }} />
       </IconButton>
-      <Typography sx={{ fontSize: { xs: 16, md: 24 }, fontWeight: 800, color: isLight ? '#1c1c1c' : '#dedede' }}>Logo</Typography>
+      <Typography sx={{ fontSize: { xs: 16, md: 24 }, fontWeight: 800, color: isLight ? '#1c1c1c' : '#dedede' }}>HHTQ Anime</Typography>
       <Stack direction="row" spacing={{ xs: 0.2, md: 1 }}>
         {[
           [PublicIcon, 'region'],
@@ -109,15 +135,15 @@ function Header({ onNotice }) {
       {openBackgroundMenu && (
         <Stack sx={{ position: 'absolute', top: { xs: 38, md: 58 }, right: { xs: 52, md: 82 }, zIndex: 5, width: { xs: 98, md: 132 }, bgcolor: '#0d0d0d', border: '1px solid #333', borderRadius: 0.6, overflow: 'hidden' }}>
           {[
-            ['dark', 'Nen den'],
-            ['light', 'Nen trang']
+            ['dark', 'Nền đen'],
+            ['light', 'Nền trắng']
           ].map(([mode, label]) => (
             <Typography
               key={mode}
               onClick={() => {
                 setBackgroundMode(mode);
                 setOpenBackgroundMenu(false);
-                onNotice(`Da chon ${label}`);
+                onNotice(`Đã chọn ${label}`);
               }}
               sx={{ px: 1.2, py: 0.85, color: mode === backgroundMode ? '#ff9800' : '#f0f0f0', fontSize: { xs: 11, md: 13 }, fontWeight: 800, cursor: 'pointer', '&:hover': { bgcolor: '#1d1d1d' } }}
             >
@@ -148,14 +174,15 @@ function ShowMore({ path = '/search' }) {
       onClick={() => go(path)}
       sx={{ height: { xs: 39, md: 46 }, border: '1px solid #3b3b3b', borderRadius: 0.5, color: '#d9d9d9', mt: { xs: 1.4, md: 2.4 }, cursor: 'pointer' }}
     >
-      <Typography sx={{ fontSize: { xs: 11, md: 14 }, fontWeight: 700 }}>Xem them</Typography>
+      <Typography sx={{ fontSize: { xs: 11, md: 14 }, fontWeight: 700 }}>Xem thêm</Typography>
       <ArrowForwardIcon sx={{ fontSize: { xs: 16, md: 20 }, color: '#777' }} />
     </Stack>
   );
 }
 
 function PosterTile({ item, compact = false, onSelect }) {
-  const [title, views, episode, seed] = item;
+  const [title, views, episode, imageSeed] = item;
+  const seed = compact ? views : imageSeed;
 
   return (
     <Box onClick={() => onSelect(title)} sx={{ minWidth: 0, cursor: 'pointer' }}>
@@ -188,7 +215,7 @@ function PosterTile({ item, compact = false, onSelect }) {
       <Typography sx={{ color: '#f2f2f2', fontSize: { xs: 11, md: 15 }, fontWeight: 700, lineHeight: 1.15, mt: { xs: 0.65, md: 1 } }} noWrap>
         {title}
       </Typography>
-      {views && (
+      {!compact && views && (
         <Stack direction="row" spacing={0.8} sx={{ color: '#aaa', mt: 0.35 }}>
           <Typography sx={{ fontSize: { xs: 9.5, md: 12 } }}>{episode}</Typography>
           <Typography sx={{ fontSize: { xs: 9.5, md: 12 } }}>{views}</Typography>
@@ -217,7 +244,7 @@ function MenuPage() {
   };
 
   const openAnime = (title) => {
-    notify(`Dang mo ${title}`);
+    notify(`Đang mở ${title}`);
   };
 
   return (
@@ -229,7 +256,7 @@ function MenuPage() {
 
           <Box sx={{ px: { xs: 1.4, md: 3 }, pt: { xs: 1, md: 3 } }}>
             <Typography align="center" sx={{ color: '#f1f1f1', fontSize: { xs: 13, md: 20 }, fontWeight: 800, mb: { xs: 1.4, md: 2.4 } }}>
-              Sap ra mat
+              Sắp ra mắt
             </Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(4, 1fr)', md: 'repeat(6, 1fr)' }, gap: { xs: 1.1, md: 2 } }}>
               {comingSoon.map((item) => (
@@ -244,7 +271,7 @@ function MenuPage() {
           </Box>
 
           <Box sx={{ px: { xs: 1.4, md: 3 }, py: { xs: 1.5, md: 3 }, borderTop: '1px solid #242424' }}>
-            <SectionTitle>Tap moi nhat</SectionTitle>
+            <SectionTitle>Tập mới nhất</SectionTitle>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' }, gap: { xs: '13px 10px', md: '24px 18px' } }}>
               {latestAnime.map((item) => (
                 <PosterTile key={item[3]} item={item} onSelect={openAnime} />
@@ -271,7 +298,7 @@ function MenuPage() {
             <SectionTitle>Tin anime</SectionTitle>
             <Stack spacing={{ xs: 1.2, md: 2 }}>
               {news.map((item) => (
-                <Stack key={item[3]} direction="row" spacing={{ xs: 1.1, md: 2 }} onClick={() => notify(`Dang mo tin: ${item[0]}`)} sx={{ cursor: 'pointer' }}>
+                <Stack key={item[3]} direction="row" spacing={{ xs: 1.1, md: 2 }} onClick={() => notify(`Đang mở tin: ${item[0]}`)} sx={{ cursor: 'pointer' }}>
                   <Box sx={{ width: { xs: 86, md: 180 }, height: { xs: 58, md: 112 }, flexShrink: 0, borderRadius: 0.4, background: `url(${poster(item[3], 240, 160)}) center/cover` }} />
                   <Box sx={{ minWidth: 0 }}>
                     <Typography sx={{ color: '#fff', fontSize: { xs: 11.5, md: 16 }, fontWeight: 800, lineHeight: 1.2 }}>{item[0]}</Typography>
@@ -285,7 +312,7 @@ function MenuPage() {
           </Box>
 
           <Box sx={{ px: { xs: 1.4, md: 3 }, py: { xs: 1.4, md: 3 }, borderTop: '1px solid #242424' }}>
-            <SectionTitle>Truyen tranh</SectionTitle>
+            <SectionTitle>Truyện tranh</SectionTitle>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' }, gap: { xs: '13px 10px', md: '24px 18px' } }}>
               {manga.map((item) => (
                 <PosterTile key={item[1]} item={item} compact onSelect={openAnime} />
@@ -301,10 +328,10 @@ function MenuPage() {
           sx={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: { xs: 55, md: 70 }, bgcolor: '#151515', borderTop: '1px solid #282828' }}
         >
           {[
-            [HomeIcon, 'Trang chu', true],
-            [FavoriteIcon, 'Phim da thich'],
-            [NotificationsIcon, 'Phim da theo doi'],
-            [SettingsIcon, 'Cai dat']
+            [HomeIcon, 'Trang chủ', true],
+            [FavoriteIcon, 'Phim đã thích'],
+            [NotificationsIcon, 'Phim đã theo dõi'],
+            [SettingsIcon, 'Cài đặt']
           ].map(([Icon, label, active], index) => (
             <Stack
               key={label}

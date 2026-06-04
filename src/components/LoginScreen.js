@@ -228,7 +228,7 @@ function LoginScreen({ variant = 'empty' }) {
     <PhoneFrame>
       <Box component="form" onSubmit={handleSubmit} sx={{ width: { xs: 'auto', md: 430 }, mx: 'auto', px: { xs: 2.5, md: 0 }, pt: { xs: 7, md: 9 } }}>
         <Typography align="center" sx={{ fontSize: { xs: 21, md: 30 }, fontWeight: 500, color: '#d8d8d8', mb: { xs: 4.8, md: 6 } }}>
-          Logo
+          HHTQ Anime
         </Typography>
 
         <AuthTabs active="login" />

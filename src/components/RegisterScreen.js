@@ -162,7 +162,7 @@ function RegisterScreen({ variant = 'empty' }) {
         }}
       >
         <Typography align="center" sx={{ fontSize: { xs: 21, md: 30 }, fontWeight: 500, color: '#d8d8d8', mb: { xs: 3.8, md: 5 } }}>
-          Logo
+          HHTQ Anime
         </Typography>
 
         <AuthTabs active="register" />

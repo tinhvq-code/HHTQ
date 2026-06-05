@@ -6,8 +6,9 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import { Box, Button, IconButton, InputAdornment, Stack, TextField, Typography } from '@mui/material';
+import { setSessionUser } from '../services/authSession.js';
+import { loginWithSql } from '../services/userApi.js';
 import PhoneFrame from './PhoneFrame.js';
-import users from '../data/users.json';
 
 export const authColors = {
   orange: '#ff9800',
@@ -91,34 +92,26 @@ export function AuthInput({ label, placeholder, value, type = 'text', icon, endI
 export function AuthTabs({ active }) {
   return (
     <Stack direction="row" sx={{ mb: 3.4, borderBottom: '1px solid transparent' }}>
-      <Box
-        onClick={() => {
-          window.location.href = '/login';
-        }}
-        sx={{
-          width: '50%',
-          textAlign: 'center',
-          pb: 1.4,
-          cursor: 'pointer',
-          borderBottom: active === 'login' ? `2px solid ${authColors.mutedOrange}` : '2px solid transparent'
-        }}
-      >
-        <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#d9d9d9' }}>Đăng nhập</Typography>
-      </Box>
-      <Box
-        onClick={() => {
-          window.location.href = '/register';
-        }}
-        sx={{
-          width: '50%',
-          textAlign: 'center',
-          pb: 1.4,
-          cursor: 'pointer',
-          borderBottom: active === 'register' ? `2px solid ${authColors.mutedOrange}` : '2px solid transparent'
-        }}
-      >
-        <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#d9d9d9' }}>Đăng ký</Typography>
-      </Box>
+      {[
+        ['login', 'Đăng nhập', '/login'],
+        ['register', 'Đăng ký', '/register']
+      ].map(([key, label, path]) => (
+        <Box
+          key={key}
+          onClick={() => {
+            window.location.href = path;
+          }}
+          sx={{
+            width: '50%',
+            textAlign: 'center',
+            pb: 1.4,
+            cursor: 'pointer',
+            borderBottom: active === key ? `2px solid ${authColors.mutedOrange}` : '2px solid transparent'
+          }}
+        >
+          <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#d9d9d9' }}>{label}</Typography>
+        </Box>
+      ))}
     </Stack>
   );
 }
@@ -126,15 +119,11 @@ export function AuthTabs({ active }) {
 export function SocialButton({ provider }) {
   const isGoogle = provider === 'Google';
 
-  const handleClick = () => {
-    window.alert(`${provider} đang được mô phỏng.`);
-  };
-
   return (
     <Button
       fullWidth
       variant="outlined"
-      onClick={handleClick}
+      onClick={() => window.alert(`${provider} chưa hỗ trợ đăng nhập.`)}
       startIcon={isGoogle ? <GoogleIcon sx={{ color: '#4285f4' }} /> : <FacebookRoundedIcon sx={{ color: '#4267b2' }} />}
       sx={{
         height: { xs: 34, md: 44 },
@@ -153,15 +142,9 @@ export function SocialButton({ provider }) {
 
 export const normalizeEmail = (email) => email.trim().toLowerCase();
 
-export const getStoredUsers = () => {
-  try {
-    return JSON.parse(window.localStorage.getItem('registeredUsers') || '[]');
-  } catch {
-    return [];
-  }
-};
+export const getStoredUsers = () => [];
 
-export const getAllUsers = () => [...users, ...getStoredUsers()];
+export const getAllUsers = () => [];
 
 function LoginScreen({ variant = 'empty' }) {
   const isFilled = variant === 'filled';
@@ -185,7 +168,7 @@ function LoginScreen({ variant = 'empty' }) {
     setMessage('');
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const email = normalizeEmail(values.email);
     const nextErrors = {
@@ -198,20 +181,24 @@ function LoginScreen({ variant = 'empty' }) {
     }
 
     if (!nextErrors.email && !nextErrors.password) {
-      const account = getAllUsers().find((user) => normalizeEmail(user.email) === email);
+      try {
+        const { user } = await loginWithSql({ email, password: values.password });
 
-      if (!account) {
-        nextErrors.email = 'Email không tồn tại.';
-      } else if (account.password !== values.password) {
-        nextErrors.password = 'Mật khẩu không đúng.';
-      } else {
-        window.localStorage.setItem('currentUser', JSON.stringify({ id: account.id, fullName: account.fullName, email: account.email }));
+        setSessionUser(user);
         setErrors({ email: '', password: '' });
         setMessage('Đăng nhập thành công.');
         window.setTimeout(() => {
           window.location.href = '/home';
         }, 500);
         return;
+      } catch (error) {
+        const messageText = error?.message || 'Không thể đăng nhập.';
+
+        if (messageText.toLowerCase().includes('email')) {
+          nextErrors.email = messageText;
+        } else {
+          nextErrors.password = messageText;
+        }
       }
     }
 
@@ -234,17 +221,7 @@ function LoginScreen({ variant = 'empty' }) {
         <AuthTabs active="login" />
 
         <Stack spacing={1.55}>
-          <AuthInput
-            label="Email"
-            placeholder="Nhập mail"
-            name="email"
-            value={values.email}
-            state={fieldState('email')}
-            helper={errors.email}
-            icon={<EmailOutlinedIcon />}
-            onChange={handleChange}
-            onFocus={() => setFocused('email')}
-          />
+          <AuthInput label="Email" placeholder="Nhập mail" name="email" value={values.email} state={fieldState('email')} helper={errors.email} icon={<EmailOutlinedIcon />} onChange={handleChange} onFocus={() => setFocused('email')} />
           <AuthInput
             label="Mật khẩu"
             placeholder="Mật khẩu của bạn"
@@ -264,31 +241,13 @@ function LoginScreen({ variant = 'empty' }) {
           />
         </Stack>
 
-        {message && (
-          <Typography sx={{ mt: 1.1, color: '#12b76a', fontSize: 11.5, fontWeight: 800 }}>
-            {message}
-          </Typography>
-        )}
+        {message && <Typography sx={{ mt: 1.1, color: '#12b76a', fontSize: 11.5, fontWeight: 800 }}>{message}</Typography>}
 
         <Typography align="right" sx={{ mt: errors.password ? 1.25 : 0.7, mb: 1.35, fontSize: 12, color: '#d8d8d8', fontWeight: 700 }}>
           Quên mật khẩu?
         </Typography>
 
-        <Button
-          fullWidth
-          type="submit"
-          variant="contained"
-          sx={{
-            height: { xs: 34, md: 44 },
-            bgcolor: values.email || values.password || errors.email ? authColors.orange : authColors.mutedOrange,
-            color: '#fff',
-            borderRadius: 0.75,
-            fontSize: { xs: 12, md: 15 },
-            fontWeight: 700,
-            boxShadow: 'none',
-            '&:hover': { bgcolor: authColors.orange, boxShadow: 'none' }
-          }}
-        >
+        <Button fullWidth type="submit" variant="contained" sx={{ height: { xs: 34, md: 44 }, bgcolor: values.email || values.password || errors.email ? authColors.orange : authColors.mutedOrange, color: '#fff', borderRadius: 0.75, fontSize: { xs: 12, md: 15 }, fontWeight: 700, boxShadow: 'none', '&:hover': { bgcolor: authColors.orange, boxShadow: 'none' } }}>
           Đăng nhập
         </Button>
 

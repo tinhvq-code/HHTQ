@@ -1,4 +1,3 @@
-import { Box, Button, Stack, Typography } from '@mui/material';
 import {
   ChangePasswordPage,
   EditProfilePage,
@@ -55,28 +54,17 @@ const routes = [
   { path: '/register-error', label: 'Register (3)', element: <RegisterErrorPage /> }
 ];
 
-function AppIndex() {
-  return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#e5e5e5', p: 3 }}>
-      <Typography variant="h5" sx={{ mb: 2, fontWeight: 700 }}>
-        Danh sách trang
-      </Typography>
-      <Stack spacing={1.5} alignItems="flex-start">
-        {routes.map((route) => (
-          <Button key={route.path} href={route.path} variant="contained">
-            {route.label}
-          </Button>
-        ))}
-      </Stack>
-    </Box>
-  );
-}
-
 function App() {
   const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+
+  if (currentPath === '/') {
+    window.location.replace('/login');
+    return null;
+  }
+
   const route = routes.find((item) => item.path === currentPath);
 
-  return route?.element ?? <AppIndex />;
+  return route?.element ?? <LoginPage />;
 }
 
 export default App;

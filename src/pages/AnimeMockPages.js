@@ -1,4 +1,4 @@
-import { createElement, useState } from 'react';
+import { createElement, useEffect, useState } from 'react';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 import CakeOutlinedIcon from '@mui/icons-material/CakeOutlined';
@@ -34,6 +34,9 @@ import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
 import { Box, Button, IconButton, Stack, TextareaAutosize, Typography } from '@mui/material';
 import PageShell from '../components/PageShell.js';
 import PhoneFrame from '../components/PhoneFrame.js';
+import { fetchAnimeCatalog } from '../services/animeApi.js';
+import { clearSessionUser, getSessionUser, setSessionUser } from '../services/authSession.js';
+import { fetchSqlProfile, sendSqlFeedback, updateSqlProfile } from '../services/userApi.js';
 
 const orange = '#ff9800';
 const bg = '#101010';
@@ -56,6 +59,7 @@ const assetPosters = [
 ];
 const poster = (image, w = 360, h = 220) => {
   if (image?.startsWith('/')) return image;
+  if (/^https?:\/\//.test(image || '')) return image;
 
   const index = Math.abs(
     String(image || 'anime')
@@ -69,7 +73,96 @@ const go = (path) => {
   window.location.href = path;
 };
 
-const rankingItems = [
+const getCurrentUser = () => {
+  return getSessionUser();
+};
+
+const getProfileInfo = () => {
+  const user = getCurrentUser();
+
+  return {
+    userId: user?.id,
+    updated: Boolean(user?.fullName),
+    fullName: user?.fullName || '',
+    email: user?.email || '',
+    phone: '',
+    birthday: '',
+    gender: ''
+  };
+};
+
+const languageOptions = [
+  { code: 'vi', flag: 'VN', label: 'Tiếng Việt' },
+  { code: 'en', flag: 'EN', label: 'English' },
+  { code: 'th', flag: 'TH', label: 'ภาษาไทย' }
+];
+
+const languageText = {
+  vi: {
+    profileTitle: 'Cá nhân',
+    guestProfileTitle: 'Cá nhân chưa đăng nhập',
+    settings: 'Cài đặt',
+    loginRegister: 'Đăng nhập / Đăng ký',
+    edit: 'Chỉnh sửa',
+    logout: 'Đăng xuất',
+    notUpdated: 'Chưa cập nhật thông tin',
+    emailEmpty: 'Chưa cập nhật email',
+    history: 'Lịch sử xem',
+    changePassword: 'Đổi mật khẩu',
+    language: 'Ngôn ngữ',
+    faq: 'Câu hỏi thường gặp',
+    feedback: 'Phản ánh ý kiến',
+    languageTitle: 'Thay đổi ngôn ngữ',
+    close: 'Đóng',
+    confirm: 'Xác nhận'
+  },
+  en: {
+    profileTitle: 'Profile',
+    guestProfileTitle: 'Guest profile',
+    settings: 'Settings',
+    loginRegister: 'Login / Register',
+    edit: 'Edit',
+    logout: 'Log out',
+    notUpdated: 'Information not updated',
+    emailEmpty: 'Email not updated',
+    history: 'Watch history',
+    changePassword: 'Change password',
+    language: 'Language',
+    faq: 'FAQ',
+    feedback: 'Feedback',
+    languageTitle: 'Change language',
+    close: 'Close',
+    confirm: 'Confirm'
+  },
+  th: {
+    profileTitle: 'โปรไฟล์',
+    guestProfileTitle: 'โปรไฟล์ผู้เยี่ยมชม',
+    settings: 'การตั้งค่า',
+    loginRegister: 'เข้าสู่ระบบ / สมัครสมาชิก',
+    edit: 'แก้ไข',
+    logout: 'ออกจากระบบ',
+    notUpdated: 'ยังไม่ได้อัปเดตข้อมูล',
+    emailEmpty: 'ยังไม่ได้อัปเดตอีเมล',
+    history: 'ประวัติการรับชม',
+    changePassword: 'เปลี่ยนรหัสผ่าน',
+    language: 'ภาษา',
+    faq: 'คำถามที่พบบ่อย',
+    feedback: 'ข้อเสนอแนะ',
+    languageTitle: 'เปลี่ยนภาษา',
+    close: 'ปิด',
+    confirm: 'ยืนยัน'
+  }
+};
+
+const getStoredLanguage = () => {
+  const code = window.localStorage.getItem('appLanguage') || 'vi';
+
+  return languageText[code] ? code : 'vi';
+};
+
+const getLanguageCopy = () => languageText[getStoredLanguage()] || languageText.vi;
+
+const STATIC_RANKING_ITEMS = [
   ['Tuyết Ưng Lĩnh Chủ', 'Tập 1', '432k lượt xem', '/assets/anime-01.jpg'],
   ['Vạn Cổ Kiếm Tôn', 'Tập 18', '756k lượt xem', '/assets/anime-06.jpg'],
   ['Thiên Đạo Huyền Sư', 'Tập 12', '612k lượt xem', '/assets/anime-07.jpg'],
@@ -81,21 +174,21 @@ const rankingItems = [
   ['Ngự Kiếm Sơn Hà', 'Tập 30', '842k lượt xem', '/assets/anime-13.jpg']
 ];
 
-const historyToday = [
+const STATIC_HISTORY_TODAY = [
   ['Tuyết Ưng Lĩnh Chủ', 'Tập 1', '432k lượt xem', '/assets/anime-01.jpg'],
   ['Vạn Cổ Kiếm Tôn', 'Tập 18', '756k lượt xem', '/assets/anime-06.jpg'],
   ['Long Tộc Trỗi Dậy', 'Tập mới', '723k lượt xem', '/assets/anime-08.jpg'],
   ['Tinh Hà Chiến Kỷ', 'Tập 15', '365k lượt xem', '/assets/anime-11.jpg']
 ];
 
-const historySecond = [
+const STATIC_HISTORY_SECOND = [
   ['Thiên Đạo Huyền Sư', 'Tập 12', '612k lượt xem', '/assets/anime-07.jpg'],
   ['Ma Vực Phong Thần', 'Tập 09', '488k lượt xem', '/assets/anime-09.jpg'],
   ['Hỏa Phụng Liên Thành', 'Tập 22', '417k lượt xem', '/assets/anime-10.jpg'],
   ['Ngự Kiếm Sơn Hà', 'Tập 30', '842k lượt xem', '/assets/anime-13.jpg']
 ];
 
-const favoriteItems = [
+const STATIC_FAVORITE_ITEMS = [
   ['Tuyết Ưng Lĩnh Chủ', 'Tập 1', '432k lượt xem', '/assets/anime-01.jpg'],
   ['Vạn Cổ Kiếm Tôn', 'Tập 18', '756k lượt xem', '/assets/anime-06.jpg'],
   ['Long Tộc Trỗi Dậy', 'Tập mới', '723k lượt xem', '/assets/anime-08.jpg'],
@@ -103,7 +196,61 @@ const favoriteItems = [
   ['Ngự Kiếm Sơn Hà', 'Tập 30', '842k lượt xem', '/assets/anime-13.jpg']
 ];
 
-const followedItems = favoriteItems;
+const STATIC_FOLLOWED_ITEMS = STATIC_FAVORITE_ITEMS;
+
+function EmptyListMessage({ title = 'Chưa có dữ liệu', message = 'Nội dung mới sẽ xuất hiện tại đây.' }) {
+  return (
+    <Stack alignItems="center" justifyContent="center" sx={{ minHeight: 240, px: 3, textAlign: 'center' }}>
+      <SmartDisplayOutlinedIcon sx={{ fontSize: { xs: 74, md: 120 }, color: '#383838' }} />
+      <Typography sx={{ color: '#fff', fontSize: { xs: 13, md: 20 }, fontWeight: 800, mt: 1.5 }}>{title}</Typography>
+      <Typography sx={{ color: '#aaa', fontSize: { xs: 10.5, md: 15 }, fontWeight: 700, mt: 0.8 }}>{message}</Typography>
+    </Stack>
+  );
+}
+
+function ProfileAvatar({ profile, size = { xs: 66, md: 108 }, editable = false, onClick }) {
+  const avatarUrl = profile?.updated ? profile.avatar || '/assets/anime-05.jpg' : '';
+
+  return (
+    <Box
+      onClick={onClick}
+      sx={{
+        width: size,
+        height: size,
+        position: 'relative',
+        flexShrink: 0,
+        borderRadius: 0.5,
+        border: avatarUrl ? 0 : '1px solid #343434',
+        bgcolor: avatarUrl ? 'transparent' : '#151515',
+        background: avatarUrl ? `url(${poster(avatarUrl, 140, 140)}) center/cover` : 'none',
+        cursor: onClick ? 'pointer' : 'default'
+      }}
+    >
+      {editable && (
+        <Box sx={{ position: 'absolute', right: -7, bottom: 7, width: 20, height: 20, borderRadius: '50%', bgcolor: orange, display: 'grid', placeItems: 'center', border: '2px solid #111' }}>
+          <EditIcon sx={{ fontSize: 12, color: '#fff' }} />
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+function FeedbackProfileSummary() {
+  const user = getCurrentUser();
+  const profile = getProfileInfo();
+  const displayName = profile.updated && profile.fullName ? profile.fullName : 'Chưa cập nhật thông tin';
+  const displayEmail = profile.email || user?.email || 'Chưa cập nhật email';
+
+  return (
+    <Stack direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.5, py: 1.4, borderBottom: `1px solid ${line}` }}>
+      <ProfileAvatar profile={profile} size={46} />
+      <Box sx={{ minWidth: 0 }}>
+        <Typography sx={{ color: '#fff', fontSize: 12, fontWeight: 800 }} noWrap>{displayName}</Typography>
+        <Typography sx={{ color: '#8c8c8c', fontSize: 10, mt: 0.4 }} noWrap>{displayEmail}</Typography>
+      </Box>
+    </Stack>
+  );
+}
 
 function PhonePage({ title, children }) {
   return (
@@ -182,7 +329,7 @@ function BottomNav({ active = 'home' }) {
     [HomeIcon, 'Trang chủ', 'home', '/home'],
     [FavoriteIcon, 'Phim đã thích', 'like', '/favorites'],
     [NotificationsIcon, 'Phim đã theo dõi', 'follow', '/followed'],
-    [SettingsIcon, 'Cài đặt', 'settings', '/profile']
+    [SettingsIcon, 'Cài đặt', 'settings', getCurrentUser() ? '/profile' : '/login-required']
   ];
 
   return (
@@ -225,12 +372,50 @@ function VideoRow({ item, onMore }) {
   );
 }
 
+function ApiOnlyState({ title, error }) {
+  return (
+    <PhonePage title={title}>
+      <Box sx={{ height: '100%', bgcolor: bg, display: error ? 'grid' : 'block', placeItems: 'center', px: 3, textAlign: 'center' }}>
+        {error && (
+          <Typography sx={{ color: '#ffb74d', fontSize: { xs: 12, md: 18 }, fontWeight: 800 }}>
+            Lỗi API: {error}
+          </Typography>
+        )}
+      </Box>
+    </PhonePage>
+  );
+}
+
+function useApiVideoItems() {
+  const [state, setState] = useState({ items: [], loading: true, error: '' });
+
+  useEffect(() => {
+    let ignore = false;
+
+    setState({ items: [], loading: true, error: '' });
+
+    fetchAnimeCatalog()
+      .then((nextItems) => {
+        if (!ignore) setState({ items: nextItems, loading: false, error: '' });
+      })
+      .catch((error) => {
+        if (!ignore) setState({ items: [], loading: false, error: error?.message || 'Không thể tải dữ liệu API' });
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  return state;
+}
+
 export function SideMenuPage() {
   const menuItems = [
-    [SportsEsportsOutlinedIcon, 'Anime', '/home'],
-    [ArticleOutlinedIcon, 'Truyện tranh', '/home'],
-    [CheckBoxOutlineBlankIcon, 'Tin tức', '/home'],
-    [LeaderboardOutlinedIcon, 'Bảng xếp hạng', '/search']
+    [SportsEsportsOutlinedIcon, 'Anime', '/home#anime'],
+    [ArticleOutlinedIcon, 'Truyện tranh', '/home#manga'],
+    [CheckBoxOutlineBlankIcon, 'Tin tức', '/home#news'],
+    [LeaderboardOutlinedIcon, 'Bảng xếp hạng', '/home#ranking']
   ];
 
   return (
@@ -252,9 +437,7 @@ export function SearchResultsPage() {
   const initialQuery = new URLSearchParams(window.location.search).get('q') || '';
   const [query, setQuery] = useState(initialQuery);
   const [chips, setChips] = useState(['Tuyết Ưng', 'Vạn Cổ Kiếm Tôn', 'Long Tộc', 'Ma Vực', 'Tinh Hà', 'Ngự Kiếm', 'Huyền Sư']);
-  const searchCatalog = [...rankingItems, ...historyToday, ...historySecond, ...favoriteItems].filter(
-    (item, index, list) => list.findIndex((current) => current[0] === item[0] && current[3] === item[3]) === index
-  );
+  const { items: searchCatalog, loading: searchLoading, error: searchError } = useApiVideoItems();
   const normalizedQuery = query.trim().toLowerCase();
   const results = normalizedQuery
     ? searchCatalog.filter((item) => `${item[0]} ${item[1]} ${item[2]}`.toLowerCase().includes(normalizedQuery))
@@ -267,6 +450,10 @@ export function SearchResultsPage() {
     setChips((current) => [keyword, ...current.filter((chip) => chip.toLowerCase() !== keyword.toLowerCase())].slice(0, 8));
     window.history.replaceState(null, '', `/search?q=${encodeURIComponent(keyword)}`);
   };
+
+  if (searchLoading || searchError) {
+    return <ApiOnlyState title="Search" error={searchError} />;
+  }
 
   return (
     <PhonePage title="Search">
@@ -339,12 +526,13 @@ export function SearchEmptyPage() {
 
 function ProfileMenu({ disabled = false }) {
   const color = disabled ? '#5f5f5f' : '#777';
+  const copy = getLanguageCopy();
   const items = [
-    [HistoryIcon, 'Lịch sử xem', '/history'],
-    [WorkOutlineIcon, 'Đổi mật khẩu', '/change-password'],
-    [PersonOutlineIcon, 'Ngôn ngữ', '/profile-language'],
-    [HelpOutlineIcon, 'Câu hỏi thường gặp', '/faq'],
-    [EditOutlinedIcon, 'Phản ánh ý kiến', '/feedback']
+    [HistoryIcon, copy.history, '/history'],
+    [WorkOutlineIcon, copy.changePassword, '/change-password'],
+    [PersonOutlineIcon, copy.language, '/profile-language'],
+    [HelpOutlineIcon, copy.faq, '/faq'],
+    [EditOutlinedIcon, copy.feedback, '/feedback']
   ];
 
   return (
@@ -360,33 +548,65 @@ function ProfileMenu({ disabled = false }) {
 }
 
 export function ProfilePage({ guest = false, language = false }) {
+  const user = getCurrentUser();
+  const [profile, setProfile] = useState(getProfileInfo());
+  const copy = getLanguageCopy();
+  const displayName = profile.updated && profile.fullName ? profile.fullName : copy.notUpdated;
+  const displayEmail = profile.email || user?.email || copy.emailEmpty;
+
+  useEffect(() => {
+    if (guest || !user?.id) {
+      return undefined;
+    }
+
+    let ignore = false;
+    fetchSqlProfile(user.id)
+      .then(({ profile: nextProfile }) => {
+        if (ignore) return;
+        setProfile(nextProfile);
+      })
+      .catch(() => {});
+
+    return () => {
+      ignore = true;
+    };
+  }, [guest, user?.id]);
+
   return (
-    <PhonePage title={guest ? 'Cá nhân chưa đăng nhập' : 'Cá nhân'}>
+    <PhonePage title={guest ? copy.guestProfileTitle : copy.profileTitle}>
       <Box sx={{ height: '100%', bgcolor: bg, position: 'relative' }}>
-        <TopBar title="Cài đặt" />
+        <TopBar title={copy.settings} />
         <Stack direction="row" alignItems="center" sx={{ px: { xs: 1.7, md: 4 }, pt: { xs: 2.8, md: 4 } }}>
           {guest ? (
             <Box onClick={() => go('/login')} sx={{ width: { xs: 64, md: 108 }, height: { xs: 64, md: 108 }, borderRadius: 0.5, bgcolor: '#e7e7e7', display: 'grid', placeItems: 'center', color: '#aaa', cursor: 'pointer' }}>
               <ImageOutlinedIcon sx={{ fontSize: { xs: 39, md: 64 } }} />
             </Box>
           ) : (
-            <Box sx={{ width: { xs: 66, md: 108 }, height: { xs: 66, md: 108 }, background: `url(${poster('/assets/anime-05.jpg', 140, 140)}) center/cover`, borderRadius: 0.5 }} />
+            <ProfileAvatar profile={profile} />
           )}
           <Box onClick={() => guest && go('/login')} sx={{ ml: { xs: 1.4, md: 2.4 }, minWidth: 0, flex: 1, cursor: guest ? 'pointer' : 'default' }}>
-            <Typography sx={{ color: '#fff', fontSize: 11.5, fontWeight: 800 }}>{guest ? 'Đăng nhập / Đăng ký' : 'A Nguyen Van'}</Typography>
-            {!guest && <Typography sx={{ color: '#8c8c8c', fontSize: 10, mt: 0.7 }}>nguyenvana@gmail.com</Typography>}
+            <Typography sx={{ color: '#fff', fontSize: 11.5, fontWeight: 800 }}>{guest ? copy.loginRegister : displayName}</Typography>
+            {!guest && <Typography sx={{ color: '#8c8c8c', fontSize: 10, mt: 0.7 }}>{displayEmail}</Typography>}
           </Box>
           {!guest && (
             <Stack onClick={() => go('/profile-edit')} direction="row" alignItems="center" spacing={0.5} sx={{ color: orange, cursor: 'pointer' }}>
               <EditIcon sx={{ fontSize: 15 }} />
-              <Typography sx={{ fontSize: 11, fontWeight: 700 }}>Chỉnh sửa</Typography>
+              <Typography sx={{ fontSize: 11, fontWeight: 700 }}>{copy.edit}</Typography>
             </Stack>
           )}
         </Stack>
         <ProfileMenu disabled={guest} />
         {!guest && (
-          <Button onClick={() => go('/login')} variant="outlined" fullWidth sx={{ position: 'absolute', left: 10, right: 10, bottom: 75, width: 'calc(100% - 20px)', height: 35, borderColor: '#343434', color: '#ff2f2f', borderRadius: 0.5, fontSize: 10.5, fontWeight: 800 }}>
-            Đăng xuất
+          <Button
+            onClick={() => {
+              clearSessionUser();
+              go('/login');
+            }}
+            variant="outlined"
+            fullWidth
+            sx={{ position: 'absolute', left: 10, right: 10, bottom: 75, width: 'calc(100% - 20px)', height: 35, borderColor: '#343434', color: '#ff2f2f', borderRadius: 0.5, fontSize: 10.5, fontWeight: 800 }}
+          >
+            {copy.logout}
           </Button>
         )}
         {language && <LanguageDialog />}
@@ -397,31 +617,31 @@ export function ProfilePage({ guest = false, language = false }) {
 }
 
 function LanguageDialog() {
-  const [language, setLanguage] = useState('Tiếng Việt');
-  const languages = [
-    ['🇻🇳', 'Tiếng Việt'],
-    ['🇬🇧', 'Tiếng Anh'],
-    ['🇹🇭', 'Tiếng Thái']
-  ];
+  const [language, setLanguage] = useState(getStoredLanguage());
+  const copy = languageText[language] || languageText.vi;
+  const confirmLanguage = () => {
+    window.localStorage.setItem('appLanguage', language);
+    go('/profile');
+  };
 
   return (
     <Box sx={{ position: 'absolute', inset: 0, bgcolor: 'rgba(16,16,16,0.62)', display: 'grid', placeItems: 'center', px: 3 }}>
       <Box sx={{ width: '100%', bgcolor: '#111', borderRadius: 0.6, p: 1.7 }}>
-        <Typography align="center" sx={{ color: '#fff', fontSize: 13, fontWeight: 800, mb: 1.2 }}>Thay đổi ngôn ngữ</Typography>
+        <Typography align="center" sx={{ color: '#fff', fontSize: 13, fontWeight: 800, mb: 1.2 }}>{copy.languageTitle}</Typography>
         <Stack spacing={1.1}>
-          {languages.map(([flag, label]) => (
-            <Stack key={label} onClick={() => setLanguage(label)} direction="row" alignItems="center" sx={{ color: '#eee', cursor: 'pointer' }}>
-              <Typography sx={{ fontSize: 17, mr: 1 }}>{flag}</Typography>
+          {languageOptions.map(({ code, flag, label }) => (
+            <Stack key={code} onClick={() => setLanguage(code)} direction="row" alignItems="center" sx={{ color: '#eee', cursor: 'pointer' }}>
+              <Typography sx={{ width: 22, color: '#aaa', fontSize: 12, fontWeight: 900, mr: 1 }}>{flag}</Typography>
               <Typography sx={{ flex: 1, fontSize: 11.2, fontWeight: 700 }}>{label}</Typography>
               <Box sx={{ width: 15, height: 15, borderRadius: '50%', border: `2px solid ${orange}`, display: 'grid', placeItems: 'center' }}>
-                {language === label && <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: orange }} />}
+                {language === code && <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: orange }} />}
               </Box>
             </Stack>
           ))}
         </Stack>
         <Stack direction="row" spacing={1.2} sx={{ mt: 1.7 }}>
-          <Button onClick={() => go('/profile')} fullWidth variant="contained" sx={{ bgcolor: '#666', boxShadow: 'none', height: 32, fontSize: 11, '&:hover': { bgcolor: '#666', boxShadow: 'none' } }}>Đóng</Button>
-          <Button onClick={() => window.alert(`Đã chọn ${language}`)} fullWidth variant="contained" sx={{ bgcolor: orange, boxShadow: 'none', height: 32, fontSize: 11, '&:hover': { bgcolor: orange, boxShadow: 'none' } }}>Xác nhận</Button>
+          <Button onClick={() => go('/profile')} fullWidth variant="contained" sx={{ bgcolor: '#666', boxShadow: 'none', height: 32, fontSize: 11, '&:hover': { bgcolor: '#666', boxShadow: 'none' } }}>{copy.close}</Button>
+          <Button onClick={confirmLanguage} fullWidth variant="contained" sx={{ bgcolor: orange, boxShadow: 'none', height: 32, fontSize: 11, '&:hover': { bgcolor: orange, boxShadow: 'none' } }}>{copy.confirm}</Button>
         </Stack>
       </Box>
     </Box>
@@ -429,37 +649,136 @@ function LanguageDialog() {
 }
 
 export function EditProfilePage() {
+  const user = getCurrentUser();
+  const profile = getProfileInfo();
+  const [saveError, setSaveError] = useState('');
+  const [values, setValues] = useState({
+    fullName: profile.updated && profile.fullName ? profile.fullName : '',
+    email: profile.email || user?.email || '',
+    phone: profile.updated && profile.phone ? profile.phone : '',
+    birthday: profile.updated && profile.birthday ? profile.birthday : '',
+    gender: profile.updated && profile.gender ? profile.gender : '',
+    avatar: profile.updated && profile.avatar ? profile.avatar : ''
+  });
   const fields = [
-    ['Họ và Tên', 'Nguyễn Văn A', PersonOutlineIcon, false],
-    ['Email', 'nguyenvana@gmail.com', MailOutlineIcon, true],
-    ['Số điện thoại', '0908152508', PhoneOutlinedIcon, false],
-    ['Ngày sinh', '02/10/2000', CakeOutlinedIcon, false],
-    ['Giới tính', 'Nam', PersonOutlineIcon, false, KeyboardArrowDownIcon]
+    ['fullName', 'Họ và Tên', PersonOutlineIcon, 'text', 'Nhập họ và tên'],
+    ['email', 'Email', MailOutlineIcon, 'email', 'Email', true],
+    ['phone', 'Số điện thoại', PhoneOutlinedIcon, 'tel', 'Nhập số điện thoại'],
+    ['birthday', 'Ngày sinh', CakeOutlinedIcon, 'date', ''],
+    ['gender', 'Giới tính', PersonOutlineIcon, 'select', 'Chọn giới tính'],
+    ['avatar', 'Ảnh đại diện', ImageOutlinedIcon, 'text', 'Dán đường dẫn ảnh đại diện']
   ];
+  useEffect(() => {
+    if (!user?.id) {
+      return undefined;
+    }
+
+    let ignore = false;
+    fetchSqlProfile(user.id)
+      .then(({ profile: nextProfile }) => {
+        if (ignore) return;
+        setValues({
+          fullName: nextProfile.updated && nextProfile.fullName ? nextProfile.fullName : '',
+          email: nextProfile.email || user?.email || '',
+          phone: nextProfile.updated && nextProfile.phone ? nextProfile.phone : '',
+          birthday: nextProfile.updated && nextProfile.birthday ? nextProfile.birthday : '',
+          gender: nextProfile.updated && nextProfile.gender ? nextProfile.gender : '',
+          avatar: nextProfile.updated && nextProfile.avatar ? nextProfile.avatar : ''
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      ignore = true;
+    };
+  }, [user?.id, user?.email]);
+
+  const setFieldValue = (name, value) => {
+    setSaveError('');
+    setValues((current) => ({ ...current, [name]: value }));
+  };
+  const saveProfile = async () => {
+    if (!user?.id) {
+      setSaveError('Vui long dang nhap truoc khi cap nhat ho so.');
+      return;
+    }
+
+    const nextProfile = {
+      userId: user?.id,
+      updated: Boolean(values.fullName.trim() || values.phone.trim() || values.birthday || values.gender || values.avatar.trim()),
+      fullName: values.fullName.trim(),
+      email: values.email.trim(),
+      phone: values.phone.trim(),
+      birthday: values.birthday,
+      gender: values.gender,
+      avatar: values.avatar.trim()
+    };
+
+    try {
+      const { user: updatedUser } = await updateSqlProfile(user.id, nextProfile);
+      setSessionUser(updatedUser);
+      go('/profile');
+    } catch (error) {
+      setSaveError(error?.message || 'Khong the luu ho so.');
+    }
+  };
 
   return (
     <PhonePage title="Chỉnh Sửa Hồ Sơ">
       <Box sx={{ height: '100%', bgcolor: bg }}>
         <TopBar title="Hồ sơ" />
         <Stack alignItems="center" sx={{ pt: 2.5 }}>
-          <Box onClick={() => window.alert('Chọn ảnh đại diện')} sx={{ width: 70, height: 70, position: 'relative', background: `url(${poster('/assets/anime-05.jpg', 140, 140)}) center/cover`, borderRadius: 0.5, cursor: 'pointer' }}>
-            <Box sx={{ position: 'absolute', right: -7, bottom: 7, width: 20, height: 20, borderRadius: '50%', bgcolor: orange, display: 'grid', placeItems: 'center', border: '2px solid #111' }}>
-              <EditIcon sx={{ fontSize: 12, color: '#fff' }} />
-            </Box>
-          </Box>
+          <ProfileAvatar profile={{ ...profile, updated: Boolean(values.avatar), avatar: values.avatar }} size={70} editable />
         </Stack>
         <Stack spacing={1.15} sx={{ px: 1.8, mt: 2.6 }}>
-          {fields.map(([label, value, Icon, disabled, EndIcon]) => (
-            <Box key={label}>
+          {fields.map(([name, label, Icon, type, placeholder, disabled]) => (
+            <Box key={name}>
               <Typography sx={{ color: '#8b8b8b', fontSize: 10.5, fontWeight: 600, mb: 0.55 }}>{label}</Typography>
-              <Stack onClick={() => !disabled && window.alert(`Sửa ${label}`)} direction="row" alignItems="center" sx={{ height: 34, px: 1, border: `1px solid ${disabled ? '#343434' : '#3a3a3a'}`, bgcolor: disabled ? '#292929' : 'transparent', borderRadius: 0.5, color: disabled ? '#777' : '#e4e4e4', cursor: disabled ? 'default' : 'pointer' }}>
+              <Stack direction="row" alignItems="center" sx={{ minHeight: 34, px: 1, border: `1px solid ${disabled ? '#343434' : '#3a3a3a'}`, bgcolor: disabled ? '#292929' : 'transparent', borderRadius: 0.5, color: disabled ? '#777' : '#e4e4e4' }}>
                 {createElement(Icon, { sx: { fontSize: 16, color: '#898989', mr: 1 } })}
-                <Typography sx={{ flex: 1, fontSize: 10.5, fontWeight: 700 }}>{value}</Typography>
-                {EndIcon && createElement(EndIcon, { sx: { fontSize: 16, color: '#999' } })}
+                {type === 'select' ? (
+                  <>
+                    <Box
+                      component="select"
+                      value={values[name]}
+                      onChange={(event) => setFieldValue(name, event.target.value)}
+                      sx={{ flex: 1, minWidth: 0, border: 0, outline: 0, bgcolor: 'transparent', color: values[name] ? '#eee' : '#777', fontSize: 10.5, fontWeight: 700, fontFamily: 'Roboto, Arial, sans-serif', appearance: 'none' }}
+                    >
+                      <Box component="option" value="" sx={{ color: '#111' }}>{placeholder}</Box>
+                      <Box component="option" value="Nam" sx={{ color: '#111' }}>Nam</Box>
+                      <Box component="option" value="Nữ" sx={{ color: '#111' }}>Nữ</Box>
+                      <Box component="option" value="Khác" sx={{ color: '#111' }}>Khác</Box>
+                    </Box>
+                    <KeyboardArrowDownIcon sx={{ fontSize: 16, color: '#999' }} />
+                  </>
+                ) : (
+                  <Box
+                    component="input"
+                    type={type}
+                    disabled={disabled}
+                    value={values[name]}
+                    placeholder={placeholder || 'Chưa cập nhật'}
+                    onChange={(event) => setFieldValue(name, event.target.value)}
+                    sx={{
+                      flex: 1,
+                      minWidth: 0,
+                      border: 0,
+                      outline: 0,
+                      bgcolor: 'transparent',
+                      color: disabled ? '#777' : '#eee',
+                      fontSize: 10.5,
+                      fontWeight: 700,
+                      fontFamily: 'Roboto, Arial, sans-serif',
+                      '&::placeholder': { color: '#666' },
+                      '&::-webkit-calendar-picker-indicator': { filter: 'invert(1)', opacity: 0.65 }
+                    }}
+                  />
+                )}
               </Stack>
             </Box>
           ))}
-          <Button onClick={() => window.alert('Đã lưu hồ sơ')} fullWidth variant="contained" sx={{ mt: 1.9, height: 36, bgcolor: orange, boxShadow: 'none', borderRadius: 0.5, fontSize: 11, fontWeight: 800, '&:hover': { bgcolor: orange, boxShadow: 'none' } }}>
+          {saveError ? <Typography sx={{ color: '#ff8a80', fontSize: 10.5, fontWeight: 800 }}>{saveError}</Typography> : null}
+          <Button onClick={saveProfile} fullWidth variant="contained" sx={{ mt: 1.9, height: 36, bgcolor: orange, boxShadow: 'none', borderRadius: 0.5, fontSize: 11, fontWeight: 800, '&:hover': { bgcolor: orange, boxShadow: 'none' } }}>
             Lưu
           </Button>
         </Stack>
@@ -469,6 +788,14 @@ export function EditProfilePage() {
 }
 
 export function HistoryPage({ actions = false }) {
+  const { items: watchedItems, loading: historyLoading, error: historyError } = useApiVideoItems();
+  const todayItems = watchedItems.slice(0, Math.ceil(watchedItems.length / 2));
+  const olderItems = watchedItems.slice(todayItems.length);
+
+  if (historyLoading || historyError) {
+    return <ApiOnlyState title="Lá»‹ch sá»­ xem" error={historyError} />;
+  }
+
   return (
     <PhonePage title="Lịch sử xem">
       <Box sx={{ height: '100%', bgcolor: bg, position: 'relative' }}>
@@ -476,10 +803,20 @@ export function HistoryPage({ actions = false }) {
           <TopBar title="Lịch sử xem" />
           <Box sx={{ px: 1.3, pt: 1.4 }}>
             <SearchBox placeholder="Tìm kiếm video đã xem..." onClick={() => window.alert('Tìm trong lịch sử xem')} />
-            <Typography sx={{ color: '#bdbdbd', fontSize: 11.3, fontWeight: 800, mt: 1.4, mb: 0.9 }}>Hôm nay</Typography>
-            <Stack spacing={1.15}>{historyToday.map((item) => <VideoRow key={`${item[1]}-${item[2]}`} item={item} onMore={() => go('/history-actions')} />)}</Stack>
-            <Typography sx={{ color: '#bdbdbd', fontSize: 11.3, fontWeight: 800, mt: 1.7, mb: 0.9 }}>Thứ 2</Typography>
-            <Stack spacing={1.15}>{historySecond.map((item) => <VideoRow key={`${item[1]}-${item[2]}`} item={item} onMore={() => go('/history-actions')} />)}</Stack>
+            {watchedItems.length > 0 ? (
+              <>
+                <Typography sx={{ color: '#bdbdbd', fontSize: 11.3, fontWeight: 800, mt: 1.4, mb: 0.9 }}>Hôm nay</Typography>
+                <Stack spacing={1.15}>{todayItems.map((item) => <VideoRow key={`${item[0]}-${item[1]}`} item={item} onMore={() => go('/history-actions')} />)}</Stack>
+                {olderItems.length > 0 && (
+                  <>
+                    <Typography sx={{ color: '#bdbdbd', fontSize: 11.3, fontWeight: 800, mt: 1.7, mb: 0.9 }}>Trước đó</Typography>
+                    <Stack spacing={1.15}>{olderItems.map((item) => <VideoRow key={`${item[0]}-${item[1]}`} item={item} onMore={() => go('/history-actions')} />)}</Stack>
+                  </>
+                )}
+              </>
+            ) : (
+              <EmptyListMessage title="Chưa có phim đã xem" message="Phim bạn xem sẽ được lưu vào lịch sử tại đây." />
+            )}
           </Box>
         </Box>
         {actions && (
@@ -584,7 +921,8 @@ export function FeedbackPage() {
     <PhonePage title="Phản ánh ý kiến">
       <Box sx={{ height: '100%', bgcolor: bg }}>
         <TopBar title="Phản ánh ý kiến" />
-        <Stack sx={{ pt: 2 }}>
+        <FeedbackProfileSummary />
+        <Stack sx={{ pt: 1 }}>
           {items.map(([Icon, label, type]) => (
             <Stack key={type} onClick={() => go(`/feedback-form?type=${type}`)} direction="row" alignItems="center" sx={{ px: 1.5, py: 1.05, cursor: 'pointer' }}>
               {createElement(Icon, { sx: { color: orange, fontSize: 29, mr: 1.1 } })}
@@ -602,12 +940,35 @@ export function FeedbackPage() {
 }
 
 export function FeedbackFormPage() {
+  const user = getCurrentUser();
   const [text, setText] = useState('');
+  const [message, setMessage] = useState('');
+  const feedbackType = new URLSearchParams(window.location.search).get('type') || 'general';
+
+  const submitFeedback = async () => {
+    if (!text.trim()) {
+      setMessage('Vui long nhap noi dung phan hoi.');
+      return;
+    }
+
+    try {
+      await sendSqlFeedback({
+        userId: user?.id || null,
+        type: feedbackType,
+        content: text.trim()
+      });
+      setText('');
+      setMessage('Da gui phan hoi.');
+    } catch (error) {
+      setMessage(error?.message || 'Khong the gui phan hoi.');
+    }
+  };
 
   return (
     <PhonePage title="Phản ánh ý kiến">
       <Box sx={{ height: '100%', bgcolor: bg, position: 'relative' }}>
-        <TopBar title="Phản ánh ý kiến" actionLabel="Gửi" onAction={() => window.alert(text ? 'Đã gửi phản ánh' : 'Vui lòng nhập nội dung')} />
+        <TopBar title="Phản ánh ý kiến" actionLabel="Gửi" onAction={submitFeedback} />
+        <FeedbackProfileSummary />
         <Box sx={{ px: 1.5, pt: 1.6 }}>
           <TextareaAutosize
             minRows={9}
@@ -617,22 +978,11 @@ export function FeedbackFormPage() {
             onChange={(event) => setText(event.target.value)}
             style={{ width: '100%', resize: 'none', background: 'transparent', color: '#eee', border: 0, outline: 0, fontSize: 12, fontFamily: 'Roboto, Arial, sans-serif' }}
           />
+          {message ? <Typography sx={{ color: message.startsWith('Da') ? orange : '#ff8a80', fontSize: 10.5, fontWeight: 800 }}>{message}</Typography> : null}
           <Typography align="right" sx={{ color: orange, fontSize: 10, mt: 9 }}>{text.length}/1000</Typography>
           <Stack onClick={() => window.alert('Đính kèm ảnh')} alignItems="center" justifyContent="center" sx={{ width: 72, height: 72, mt: 2, border: '1px dashed #777', color: '#aaa', cursor: 'pointer' }}>
             <ImageOutlinedIcon sx={{ fontSize: 24 }} />
             <Typography sx={{ fontSize: 8, mt: 0.5 }}>Đăng tải hình ảnh</Typography>
-          </Stack>
-        </Box>
-        <Box sx={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 155, bgcolor: '#777', color: '#fff', px: 0.6, py: 0.8 }}>
-          {['Q W E R T Y U I O P', 'A S D F G H J K L', 'Z X C V B N M'].map((row) => (
-            <Stack key={row} direction="row" justifyContent="center" spacing={0.45} sx={{ mb: 0.55 }}>
-              {row.split(' ').map((key) => <Box key={key} sx={{ width: 24, height: 24, bgcolor: '#555', borderRadius: 0.3, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 800 }}>{key}</Box>)}
-            </Stack>
-          ))}
-          <Stack direction="row" justifyContent="center" spacing={0.5}>
-            <Box sx={{ width: 42, height: 25, bgcolor: '#555', borderRadius: 0.3, display: 'grid', placeItems: 'center', fontSize: 10 }}>123</Box>
-            <Box sx={{ width: 116, height: 25, bgcolor: '#555', borderRadius: 0.3, display: 'grid', placeItems: 'center', fontSize: 10 }}>space</Box>
-            <Box sx={{ width: 58, height: 25, bgcolor: '#555', borderRadius: 0.3, display: 'grid', placeItems: 'center', fontSize: 10 }}>return</Box>
           </Stack>
         </Box>
       </Box>
@@ -689,11 +1039,15 @@ function VideoListPage({ title, items, active, actionPath, actions = false, dele
       <Box sx={{ height: '100%', bgcolor: bg, position: 'relative' }}>
         <Box sx={{ height: '100%', overflowY: 'auto', scrollbarWidth: 'none', pb: 2 }}>
           <TopBar title={title} />
-          <Stack spacing={1.25} sx={{ px: 1.6, pt: 1.6 }}>
-            {items.map((item) => (
-              <VideoRow key={`${item[0]}-${item[1]}`} item={item} onMore={() => go(actionPath)} />
-            ))}
-          </Stack>
+          {items.length > 0 ? (
+            <Stack spacing={1.25} sx={{ px: 1.6, pt: 1.6 }}>
+              {items.map((item) => (
+                <VideoRow key={`${item[0]}-${item[1]}`} item={item} onMore={() => go(actionPath)} />
+              ))}
+            </Stack>
+          ) : (
+            <EmptyListMessage title={active === 'like' ? 'Chưa có phim đã thích' : 'Chưa có phim theo dõi'} message={active === 'like' ? 'Những phim bạn thích sẽ xuất hiện tại đây.' : 'Những phim bạn theo dõi sẽ xuất hiện tại đây.'} />
+          )}
         </Box>
         {active && <BottomNav active={active} />}
         {actions && <VideoActionSheet kind={active === 'like' ? 'favorite' : 'follow'} closePath={closePath} deletePath={`${closePath}-delete`} />}
@@ -704,10 +1058,16 @@ function VideoListPage({ title, items, active, actionPath, actions = false, dele
 }
 
 export function FavoritesPage({ actions = false, deleteDialog = false }) {
+  const { items, loading, error } = useApiVideoItems();
+
+  if (loading || error) {
+    return <ApiOnlyState title="Phim Ä‘Ă£ thĂ­ch" error={error} />;
+  }
+
   return (
     <VideoListPage
       title="Phim đã thích"
-      items={favoriteItems}
+      items={items}
       active="like"
       actionPath="/favorites-actions"
       actions={actions}
@@ -720,10 +1080,16 @@ export function FavoritesPage({ actions = false, deleteDialog = false }) {
 }
 
 export function FollowedPage({ actions = false, deleteDialog = false }) {
+  const { items, loading, error } = useApiVideoItems();
+
+  if (loading || error) {
+    return <ApiOnlyState title="Phim Ä‘Ă£ theo dĂµi" error={error} />;
+  }
+
   return (
     <VideoListPage
       title="Phim đã theo dõi"
-      items={followedItems}
+      items={items}
       active="follow"
       actionPath="/followed-actions"
       actions={actions}
@@ -734,5 +1100,3 @@ export function FollowedPage({ actions = false, deleteDialog = false }) {
     />
   );
 }
-
-

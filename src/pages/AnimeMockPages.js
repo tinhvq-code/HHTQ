@@ -36,7 +36,7 @@ import PageShell from '../components/PageShell.js';
 import PhoneFrame from '../components/PhoneFrame.js';
 import { fetchAnimeCatalog } from '../services/animeApi.js';
 import { clearSessionUser, getSessionUser, setSessionUser } from '../services/authSession.js';
-import { fetchSqlProfile, sendSqlFeedback, updateSqlProfile } from '../services/userApi.js';
+import { fetchSqlProfile, fetchUserVideoItems, logoutSqlSession, sendSqlFeedback, updateSqlProfile } from '../services/userApi.js';
 
 const orange = '#ff9800';
 const bg = '#101010';
@@ -112,6 +112,9 @@ const languageText = {
     language: 'Ngôn ngữ',
     faq: 'Câu hỏi thường gặp',
     feedback: 'Phản ánh ý kiến',
+    home: 'Trang chủ',
+    favorites: 'Phim đã thích',
+    followed: 'Phim đã theo dõi',
     languageTitle: 'Thay đổi ngôn ngữ',
     close: 'Đóng',
     confirm: 'Xác nhận'
@@ -130,6 +133,9 @@ const languageText = {
     language: 'Language',
     faq: 'FAQ',
     feedback: 'Feedback',
+    home: 'Home',
+    favorites: 'Favorites',
+    followed: 'Following',
     languageTitle: 'Change language',
     close: 'Close',
     confirm: 'Confirm'
@@ -148,11 +154,16 @@ const languageText = {
     language: 'ภาษา',
     faq: 'คำถามที่พบบ่อย',
     feedback: 'ข้อเสนอแนะ',
+    home: 'หน้าแรก',
+    favorites: 'รายการโปรด',
+    followed: 'กำลังติดตาม',
     languageTitle: 'เปลี่ยนภาษา',
     close: 'ปิด',
     confirm: 'ยืนยัน'
   }
 };
+
+const languageChangeEvent = 'app-language-change';
 
 const getStoredLanguage = () => {
   const code = window.localStorage.getItem('appLanguage') || 'vi';
@@ -160,7 +171,38 @@ const getStoredLanguage = () => {
   return languageText[code] ? code : 'vi';
 };
 
-const getLanguageCopy = () => languageText[getStoredLanguage()] || languageText.vi;
+const setStoredLanguage = (code) => {
+  const nextLanguage = languageText[code] ? code : 'vi';
+  window.localStorage.setItem('appLanguage', nextLanguage);
+  window.dispatchEvent(new CustomEvent(languageChangeEvent, { detail: nextLanguage }));
+
+  return nextLanguage;
+};
+
+function useLanguageCopy() {
+  const [language, setLanguage] = useState(getStoredLanguage);
+
+  useEffect(() => {
+    const syncLanguage = (event) => {
+      const nextLanguage = languageText[event?.detail] ? event.detail : getStoredLanguage();
+      setLanguage(nextLanguage);
+    };
+
+    window.addEventListener(languageChangeEvent, syncLanguage);
+    window.addEventListener('storage', syncLanguage);
+
+    return () => {
+      window.removeEventListener(languageChangeEvent, syncLanguage);
+      window.removeEventListener('storage', syncLanguage);
+    };
+  }, []);
+
+  return {
+    language,
+    copy: languageText[language] || languageText.vi,
+    setLanguage: (code) => setLanguage(setStoredLanguage(code))
+  };
+}
 
 const STATIC_RANKING_ITEMS = [
   ['Tuyết Ưng Lĩnh Chủ', 'Tập 1', '432k lượt xem', '/assets/anime-01.jpg'],
@@ -325,11 +367,12 @@ function SearchBox({ placeholder = 'Anime, truyện tranh, nhân vật...', valu
   );
 }
 function BottomNav({ active = 'home' }) {
+  const { copy } = useLanguageCopy();
   const items = [
-    [HomeIcon, 'Trang chủ', 'home', '/home'],
-    [FavoriteIcon, 'Phim đã thích', 'like', '/favorites'],
-    [NotificationsIcon, 'Phim đã theo dõi', 'follow', '/followed'],
-    [SettingsIcon, 'Cài đặt', 'settings', getCurrentUser() ? '/profile' : '/login-required']
+    [HomeIcon, copy.home, 'home', '/home'],
+    [FavoriteIcon, copy.favorites, 'like', '/favorites'],
+    [NotificationsIcon, copy.followed, 'follow', '/followed'],
+    [SettingsIcon, copy.settings, 'settings', getCurrentUser() ? '/profile' : '/no-login']
   ];
 
   return (
@@ -406,6 +449,30 @@ function useApiVideoItems() {
       ignore = true;
     };
   }, []);
+
+  return state;
+}
+
+function useUserVideoItems(kind) {
+  const [state, setState] = useState({ items: [], loading: true, error: '' });
+
+  useEffect(() => {
+    let ignore = false;
+
+    setState({ items: [], loading: true, error: '' });
+
+    fetchUserVideoItems(kind)
+      .then(({ items }) => {
+        if (!ignore) setState({ items: items || [], loading: false, error: '' });
+      })
+      .catch((error) => {
+        if (!ignore) setState({ items: [], loading: false, error: error?.message || 'Khong the tai danh sach phim cua tai khoan' });
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [kind]);
 
   return state;
 }
@@ -524,9 +591,8 @@ export function SearchEmptyPage() {
   );
 }
 
-function ProfileMenu({ disabled = false }) {
+function ProfileMenu({ copy, disabled = false }) {
   const color = disabled ? '#5f5f5f' : '#777';
-  const copy = getLanguageCopy();
   const items = [
     [HistoryIcon, copy.history, '/history'],
     [WorkOutlineIcon, copy.changePassword, '/change-password'],
@@ -550,7 +616,7 @@ function ProfileMenu({ disabled = false }) {
 export function ProfilePage({ guest = false, language = false }) {
   const user = getCurrentUser();
   const [profile, setProfile] = useState(getProfileInfo());
-  const copy = getLanguageCopy();
+  const { copy } = useLanguageCopy();
   const displayName = profile.updated && profile.fullName ? profile.fullName : copy.notUpdated;
   const displayEmail = profile.email || user?.email || copy.emailEmpty;
 
@@ -595,10 +661,11 @@ export function ProfilePage({ guest = false, language = false }) {
             </Stack>
           )}
         </Stack>
-        <ProfileMenu disabled={guest} />
+        <ProfileMenu copy={copy} disabled={guest} />
         {!guest && (
           <Button
             onClick={() => {
+              logoutSqlSession().catch(() => {});
               clearSessionUser();
               go('/login');
             }}
@@ -617,10 +684,8 @@ export function ProfilePage({ guest = false, language = false }) {
 }
 
 function LanguageDialog() {
-  const [language, setLanguage] = useState(getStoredLanguage());
-  const copy = languageText[language] || languageText.vi;
+  const { language, copy, setLanguage } = useLanguageCopy();
   const confirmLanguage = () => {
-    window.localStorage.setItem('appLanguage', language);
     go('/profile');
   };
 
@@ -788,7 +853,7 @@ export function EditProfilePage() {
 }
 
 export function HistoryPage({ actions = false }) {
-  const { items: watchedItems, loading: historyLoading, error: historyError } = useApiVideoItems();
+  const { items: watchedItems, loading: historyLoading, error: historyError } = useUserVideoItems('history');
   const todayItems = watchedItems.slice(0, Math.ceil(watchedItems.length / 2));
   const olderItems = watchedItems.slice(todayItems.length);
 
@@ -1058,7 +1123,7 @@ function VideoListPage({ title, items, active, actionPath, actions = false, dele
 }
 
 export function FavoritesPage({ actions = false, deleteDialog = false }) {
-  const { items, loading, error } = useApiVideoItems();
+  const { items, loading, error } = useUserVideoItems('favorite');
 
   if (loading || error) {
     return <ApiOnlyState title="Phim Ä‘Ă£ thĂ­ch" error={error} />;
@@ -1080,7 +1145,7 @@ export function FavoritesPage({ actions = false, deleteDialog = false }) {
 }
 
 export function FollowedPage({ actions = false, deleteDialog = false }) {
-  const { items, loading, error } = useApiVideoItems();
+  const { items, loading, error } = useUserVideoItems('followed');
 
   if (loading || error) {
     return <ApiOnlyState title="Phim Ä‘Ă£ theo dĂµi" error={error} />;

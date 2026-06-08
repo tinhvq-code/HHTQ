@@ -7,7 +7,8 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import { Box, Button, IconButton, InputAdornment, Stack, TextField, Typography } from '@mui/material';
 import { setSessionUser } from '../services/authSession.js';
-import { loginWithSql } from '../services/userApi.js';
+import { signInWithFacebook, signInWithGoogle } from '../services/socialAuth.js';
+import { loginWithSql, socialLoginWithSql } from '../services/userApi.js';
 import PhoneFrame from './PhoneFrame.js';
 
 export const authColors = {
@@ -140,6 +141,55 @@ export function SocialButton({ provider }) {
   );
 }
 
+export function SocialAuthButton({ provider }) {
+  const isGoogle = provider === 'Google';
+  const isConfigured = isGoogle ? Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID) : Boolean(import.meta.env.VITE_FACEBOOK_APP_ID);
+  const [loading, setLoading] = useState(false);
+
+  const handleSocialLogin = async () => {
+    if (!isConfigured) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const socialProfile = isGoogle ? await signInWithGoogle() : await signInWithFacebook();
+      const { user, token } = await socialLoginWithSql(socialProfile);
+
+      setSessionUser(user, token);
+      window.location.href = '/home';
+    } catch (error) {
+      window.alert(error?.message || `Khong the dang nhap bang ${provider}.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Button
+      type="button"
+      fullWidth
+      variant="outlined"
+      disabled={loading || !isConfigured}
+      onClick={handleSocialLogin}
+      startIcon={isGoogle ? <GoogleIcon sx={{ color: '#4285f4' }} /> : <FacebookRoundedIcon sx={{ color: '#4267b2' }} />}
+      sx={{
+        height: { xs: 34, md: 44 },
+        borderColor: authColors.fieldBorder,
+        color: '#d6d6d6',
+        borderRadius: 0.75,
+        fontSize: { xs: 12, md: 14 },
+        fontWeight: 600,
+        '&:hover': { borderColor: '#4a4a4a', bgcolor: 'rgba(255,255,255,0.02)' },
+        '&.Mui-disabled': { color: '#777', borderColor: '#2a2a2a' }
+      }}
+    >
+      {loading ? 'Dang ket noi...' : isConfigured ? provider : `${provider} - chua cau hinh`}
+    </Button>
+  );
+}
+
 export const normalizeEmail = (email) => email.trim().toLowerCase();
 
 export const getStoredUsers = () => [];
@@ -182,9 +232,9 @@ function LoginScreen({ variant = 'empty' }) {
 
     if (!nextErrors.email && !nextErrors.password) {
       try {
-        const { user } = await loginWithSql({ email, password: values.password });
+        const { user, token } = await loginWithSql({ email, password: values.password });
 
-        setSessionUser(user);
+        setSessionUser(user, token);
         setErrors({ email: '', password: '' });
         setMessage('Đăng nhập thành công.');
         window.setTimeout(() => {
@@ -256,8 +306,8 @@ function LoginScreen({ variant = 'empty' }) {
         </Typography>
 
         <Stack spacing={1.3}>
-          <SocialButton provider="Google" />
-          <SocialButton provider="Facebook" />
+          <SocialAuthButton provider="Google" />
+          <SocialAuthButton provider="Facebook" />
         </Stack>
 
         <Typography align="center" sx={{ mt: 2.2, color: '#d8d8d8', fontSize: 12, fontWeight: 700 }}>

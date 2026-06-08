@@ -1,4 +1,5 @@
 import cors from 'cors';
+import crypto from 'node:crypto';
 import dotenv from 'dotenv';
 import express from 'express';
 import sql from 'mssql';
@@ -26,6 +27,7 @@ const dbConfig = {
 };
 
 let poolPromise;
+const sessions = new Map();
 
 const getPool = async () => {
   if (!poolPromise) {
@@ -36,6 +38,44 @@ const getPool = async () => {
 };
 
 const normalizeEmail = (email = '') => email.trim().toLowerCase();
+
+const createSession = (userId) => {
+  const token = crypto.randomUUID();
+  sessions.set(token, {
+    userId,
+    createdAt: Date.now()
+  });
+  return token;
+};
+
+const getBearerToken = (req) => {
+  const header = req.headers.authorization || '';
+  const [type, token] = header.split(' ');
+  return type === 'Bearer' ? token : '';
+};
+
+const requireAuth = (req, res, next) => {
+  const token = getBearerToken(req);
+  const session = sessions.get(token);
+
+  if (!session) {
+    return res.status(401).json({ message: 'Vui long dang nhap truoc khi tiep tuc.' });
+  }
+
+  req.session = session;
+  req.authToken = token;
+  return next();
+};
+
+const requireSameUser = (req, res, next) => {
+  const routeUserId = Number(req.params.userId || req.body.userId);
+
+  if (!routeUserId || routeUserId !== req.session.userId) {
+    return res.status(403).json({ message: 'Ban khong co quyen truy cap du lieu nay.' });
+  }
+
+  return next();
+};
 
 const publicUserSelect = `
   Id AS id,
@@ -112,6 +152,21 @@ const ensureSchema = async () => {
         Content NVARCHAR(1000) NOT NULL,
         CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
         CONSTRAINT FK_FeedbackMessages_AppUsers FOREIGN KEY (UserId) REFERENCES dbo.AppUsers(Id)
+      );
+    END;
+
+    IF OBJECT_ID('dbo.UserVideoItems', 'U') IS NULL
+    BEGIN
+      CREATE TABLE dbo.UserVideoItems (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        UserId INT NOT NULL,
+        ListType NVARCHAR(20) NOT NULL,
+        Title NVARCHAR(220) NOT NULL,
+        Episode NVARCHAR(80) NULL,
+        MetaText NVARCHAR(160) NULL,
+        Image NVARCHAR(500) NULL,
+        CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT FK_UserVideoItems_AppUsers FOREIGN KEY (UserId) REFERENCES dbo.AppUsers(Id)
       );
     END;
   `);
@@ -195,7 +250,9 @@ app.post('/api/auth/register', async (req, res) => {
 
     const profile = await getProfileByUserId(user.id);
 
-    res.status(201).json({ user, profile });
+    const token = createSession(user.id);
+
+    res.status(201).json({ user, profile, token });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Không thể đăng ký tài khoản.', error: err.message });
@@ -247,14 +304,110 @@ app.post('/api/auth/login', async (req, res) => {
       profile = await getProfileByUserId(user.id);
     }
 
-    res.json({ user, profile });
+    const token = createSession(user.id);
+
+    res.json({ user, profile, token });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Không thể đăng nhập.', error: err.message });
   }
 });
 
-app.get('/api/users/:userId/profile', async (req, res) => {
+app.post('/api/auth/social', async (req, res) => {
+  const provider = String(req.body.provider || '').trim().toLowerCase();
+  const providerId = String(req.body.providerId || '').trim();
+  const fullName = String(req.body.fullName || '').trim();
+  const email = normalizeEmail(req.body.email);
+  const avatar = String(req.body.avatar || '').trim();
+
+  if (!['google', 'facebook'].includes(provider) || !providerId || !email) {
+    return res.status(400).json({ message: 'Thong tin dang nhap mang xa hoi khong hop le.' });
+  }
+
+  try {
+    const pool = await getPool();
+    const existing = await pool
+      .request()
+      .input('email', sql.NVarChar(180), email)
+      .query(`SELECT ${publicUserSelect} FROM dbo.AppUsers WHERE Email = @email`);
+
+    let user = existing.recordset[0];
+
+    if (!user) {
+      const created = await pool
+        .request()
+        .input('fullName', sql.NVarChar(120), fullName || email)
+        .input('email', sql.NVarChar(180), email)
+        .input('passwordHash', sql.NVarChar(255), `${provider}:${providerId}`)
+        .query(`
+          INSERT INTO dbo.AppUsers (FullName, Email, Phone, Birthday, Gender, PasswordHash)
+          OUTPUT ${publicUserOutput}
+          VALUES (@fullName, @email, '', '', '', @passwordHash);
+        `);
+
+      user = created.recordset[0];
+    }
+
+    let profile = await getProfileByUserId(user.id);
+
+    if (!profile) {
+      await pool
+        .request()
+        .input('userId', sql.Int, user.id)
+        .input('fullName', sql.NVarChar(120), user.fullName || fullName || '')
+        .input('email', sql.NVarChar(180), user.email)
+        .input('avatar', sql.NVarChar(500), avatar)
+        .query(`
+          INSERT INTO dbo.UserProfiles (UserId, Updated, FullName, Email, Phone, Birthday, Gender, Avatar)
+          VALUES (@userId, 0, @fullName, @email, '', '', '', @avatar);
+        `);
+    } else if (avatar && !profile.avatar) {
+      await pool
+        .request()
+        .input('userId', sql.Int, user.id)
+        .input('avatar', sql.NVarChar(500), avatar)
+        .query('UPDATE dbo.UserProfiles SET Avatar = @avatar, UpdatedAt = SYSUTCDATETIME() WHERE UserId = @userId');
+    }
+
+    profile = await getProfileByUserId(user.id);
+    const token = createSession(user.id);
+
+    return res.json({ user, profile, token });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Khong the dang nhap bang mang xa hoi.', error: err.message });
+  }
+});
+
+app.get('/api/auth/me', requireAuth, async (req, res) => {
+  try {
+    const pool = await getPool();
+    const userResult = await pool
+      .request()
+      .input('userId', sql.Int, req.session.userId)
+      .query(`SELECT ${publicUserSelect} FROM dbo.AppUsers WHERE Id = @userId`);
+
+    const user = userResult.recordset[0];
+
+    if (!user) {
+      sessions.delete(req.authToken);
+      return res.status(401).json({ message: 'Phien dang nhap khong hop le.' });
+    }
+
+    const profile = await getProfileByUserId(user.id);
+    return res.json({ user, profile });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Khong the kiem tra phien dang nhap.', error: err.message });
+  }
+});
+
+app.post('/api/auth/logout', requireAuth, (req, res) => {
+  sessions.delete(req.authToken);
+  res.json({ message: 'Da dang xuat.' });
+});
+
+app.get('/api/users/:userId/profile', requireAuth, requireSameUser, async (req, res) => {
   try {
     const profile = await getProfileByUserId(Number(req.params.userId));
 
@@ -269,7 +422,7 @@ app.get('/api/users/:userId/profile', async (req, res) => {
   }
 });
 
-app.put('/api/users/:userId/profile', async (req, res) => {
+app.put('/api/users/:userId/profile', requireAuth, requireSameUser, async (req, res) => {
   const userId = Number(req.params.userId);
   const fullName = String(req.body.fullName || '').trim();
   const email = normalizeEmail(req.body.email);
@@ -333,8 +486,8 @@ app.put('/api/users/:userId/profile', async (req, res) => {
   }
 });
 
-app.post('/api/feedback', async (req, res) => {
-  const userId = req.body.userId ? Number(req.body.userId) : null;
+app.post('/api/feedback', requireAuth, async (req, res) => {
+  const userId = req.session.userId;
   const feedbackType = String(req.body.type || 'suggest').trim();
   const content = String(req.body.content || '').trim();
 
@@ -362,6 +515,113 @@ app.post('/api/feedback', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Không thể gửi phản hồi.', error: err.message });
+  }
+});
+
+app.get('/api/users/me/videos/:kind', requireAuth, async (req, res) => {
+  const allowedKinds = new Set(['history', 'favorite', 'followed']);
+  const kind = String(req.params.kind || '').trim();
+
+  if (!allowedKinds.has(kind)) {
+    return res.status(400).json({ message: 'Danh sach phim khong hop le.' });
+  }
+
+  try {
+    const pool = await getPool();
+    const result = await pool
+      .request()
+      .input('userId', sql.Int, req.session.userId)
+      .input('kind', sql.NVarChar(20), kind)
+      .query(`
+        SELECT Title AS title, Episode AS episode, MetaText AS metaText, Image AS image
+        FROM dbo.UserVideoItems
+        WHERE UserId = @userId AND ListType = @kind
+        ORDER BY CreatedAt DESC, Id DESC;
+      `);
+
+    res.json({
+      items: result.recordset.map((item) => [
+        item.title || '',
+        item.episode || '',
+        item.metaText || '',
+        item.image || ''
+      ])
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Khong the tai danh sach phim cua tai khoan.', error: err.message });
+  }
+});
+
+app.post('/api/users/me/videos/:kind', requireAuth, async (req, res) => {
+  const allowedKinds = new Set(['history', 'favorite', 'followed']);
+  const kind = String(req.params.kind || '').trim();
+  const title = String(req.body.title || '').trim();
+  const episode = String(req.body.episode || '').trim();
+  const metaText = String(req.body.metaText || '').trim();
+  const image = String(req.body.image || '').trim();
+
+  if (!allowedKinds.has(kind)) {
+    return res.status(400).json({ message: 'Danh sach phim khong hop le.' });
+  }
+
+  if (!title) {
+    return res.status(400).json({ message: 'Vui long chon phim can luu.' });
+  }
+
+  try {
+    const pool = await getPool();
+
+    await pool
+      .request()
+      .input('userId', sql.Int, req.session.userId)
+      .input('kind', sql.NVarChar(20), kind)
+      .input('title', sql.NVarChar(220), title)
+      .input('episode', sql.NVarChar(80), episode)
+      .input('metaText', sql.NVarChar(160), metaText)
+      .input('image', sql.NVarChar(500), image)
+      .query(`
+        DELETE FROM dbo.UserVideoItems
+        WHERE UserId = @userId AND ListType = @kind AND Title = @title;
+
+        INSERT INTO dbo.UserVideoItems (UserId, ListType, Title, Episode, MetaText, Image)
+        VALUES (@userId, @kind, @title, @episode, @metaText, @image);
+      `);
+
+    res.status(201).json({ message: 'Da luu phim vao danh sach.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Khong the luu phim vao danh sach.', error: err.message });
+  }
+});
+
+app.delete('/api/users/me/videos/:kind', requireAuth, async (req, res) => {
+  const allowedKinds = new Set(['history', 'favorite', 'followed']);
+  const kind = String(req.params.kind || '').trim();
+  const title = String(req.body.title || '').trim();
+
+  if (!allowedKinds.has(kind)) {
+    return res.status(400).json({ message: 'Danh sach phim khong hop le.' });
+  }
+
+  try {
+    const pool = await getPool();
+
+    await pool
+      .request()
+      .input('userId', sql.Int, req.session.userId)
+      .input('kind', sql.NVarChar(20), kind)
+      .input('title', sql.NVarChar(220), title)
+      .query(`
+        DELETE FROM dbo.UserVideoItems
+        WHERE UserId = @userId AND ListType = @kind
+          AND (@title = '' OR Title = @title);
+      `);
+
+    res.json({ message: 'Da xoa phim khoi danh sach.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Khong the xoa phim khoi danh sach.', error: err.message });
   }
 });
 

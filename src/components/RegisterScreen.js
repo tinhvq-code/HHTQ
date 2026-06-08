@@ -9,7 +9,7 @@ import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined
 import { Box, Button, InputAdornment, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { setSessionUser } from '../services/authSession.js';
 import { registerWithSql } from '../services/userApi.js';
-import { AuthInput, AuthTabs, SocialButton, authColors, authInputSx, normalizeEmail } from './LoginScreen.js';
+import { AuthInput, AuthTabs, SocialAuthButton, authColors, authInputSx, normalizeEmail } from './LoginScreen.js';
 import PhoneFrame from './PhoneFrame.js';
 
 const emptyValues = {
@@ -118,7 +118,7 @@ function RegisterScreen({ variant = 'empty' }) {
     }
 
     try {
-      const { user } = await registerWithSql({
+      const { user, token } = await registerWithSql({
         fullName: values.fullName.trim(),
         email: normalizeEmail(values.email),
         phone: values.phone.trim(),
@@ -127,7 +127,7 @@ function RegisterScreen({ variant = 'empty' }) {
         password: values.password
       });
 
-      setSessionUser(user);
+      setSessionUser(user, token);
       setMessage('Đăng ký thành công.');
       window.setTimeout(() => {
         window.location.href = '/home';
@@ -208,8 +208,8 @@ function RegisterScreen({ variant = 'empty' }) {
           </Typography>
 
           <Stack spacing={0.95}>
-            <SocialButton provider="Google" />
-            <SocialButton provider="Facebook" />
+            <SocialAuthButton provider="Google" />
+            <SocialAuthButton provider="Facebook" />
           </Stack>
         </Box>
       </Box>

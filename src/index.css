@@ -1,0 +1,49 @@
+* {
+    box-sizing: border-box;
+    scrollbar-color: #101010 #101010;
+    scrollbar-width: thin;
+    -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+    background: #101010;
+}
+
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+    background: #101010;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: #101010;
+    border: 0;
+}
+
+html,
+body,
+#root {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-width: 100%;
+    height: 100%;
+    min-height: 100%;
+    background: #101010 !important;
+}
+
+html,
+body {
+    overflow: hidden;
+}
+
+#root {
+    display: block;
+    overflow: hidden;
+}
+
+img,
+iframe {
+    max-width: 100%;
+}

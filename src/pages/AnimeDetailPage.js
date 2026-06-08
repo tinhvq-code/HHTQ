@@ -192,6 +192,13 @@ export default function AnimeDetailPage() {
   const tags = [anime.title, `${anime.title} Vietsub`, `${anime.title} HD`, anime.eps];
   const genreText = anime.genres?.length ? anime.genres.join(', ') : 'Đang cập nhật';
   const activeTrailerUrl = trailerUrl(anime.trailer);
+
+  useEffect(() => {
+    if (viewMode === 'trailer' && activeTrailerUrl) {
+      rememberWatchedAnime(anime);
+    }
+  }, [activeTrailerUrl, anime, viewMode]);
+
   const resetDetailView = () => {
     setViewMode('trailer');
     setNotice('');
@@ -200,12 +207,17 @@ export default function AnimeDetailPage() {
     window.scrollTo({ top: 0, behavior: 'auto' });
   };
   const showTrailer = () => {
+    rememberWatchedAnime(anime);
     setViewMode('trailer');
     scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const showEpisodes = () => {
     rememberWatchedAnime(anime);
     setViewMode('episodes');
+  };
+  const watchEpisode = () => {
+    rememberWatchedAnime(anime);
+    showNotice('Đã lưu vào lịch sử xem');
   };
   const showNotice = (text) => {
     setNotice(text);
@@ -373,7 +385,7 @@ export default function AnimeDetailPage() {
                 <Box>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1, md: 1.6 }, mb: { xs: 2, md: 3 } }}>
                     {episodeItems.map((ep) => (
-                      <Box key={ep.id} sx={{ display: 'flex', gap: { xs: 1, md: 1.6 }, cursor: 'pointer', '&:hover': { opacity: 0.8 } }}>
+                      <Box key={ep.id} onClick={watchEpisode} sx={{ display: 'flex', gap: { xs: 1, md: 1.6 }, cursor: 'pointer', '&:hover': { opacity: 0.8 } }}>
                         <Box sx={{ position: 'relative', width: { xs: 86, md: 130 }, height: { xs: 54, md: 78 }, borderRadius: 0.8, overflow: 'hidden', flexShrink: 0 }}>
                           <img src={ep.img} alt={ep.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>

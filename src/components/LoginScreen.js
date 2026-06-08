@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { GoogleLogin } from '@react-oauth/google';
+import { jwtDecode } from 'jwt-decode';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import FacebookRoundedIcon from '@mui/icons-material/FacebookRounded';
 import GoogleIcon from '@mui/icons-material/Google';
@@ -160,6 +162,33 @@ function LoginScreen({ variant = 'empty' }) {
   const [focused, setFocused] = useState(isFilled ? 'email' : '');
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState('');
+  const handleGoogleSuccess = (credentialResponse) => {
+    try {
+      const userInfo = jwtDecode(
+        credentialResponse.credential
+      );
+
+      console.log(userInfo);
+
+      const user = {
+        id: userInfo.sub,
+        email: userInfo.email,
+        fullName: userInfo.name,
+        avatar: userInfo.picture,
+        provider: 'google'
+      };
+
+      setSessionUser(user);
+
+      setMessage('Đăng nhập Google thành công');
+
+      setTimeout(() => {
+        window.location.href = '/home';
+      }, 500);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -213,7 +242,7 @@ function LoginScreen({ variant = 'empty' }) {
 
   return (
     <PhoneFrame>
-      <Box component="form" onSubmit={handleSubmit} sx={{ width: { xs: 'auto', md: 430 }, mx: 'auto', px: { xs: 2.5, md: 0 }, pt: { xs: 7, md: 9 } }}>
+      <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%', maxWidth: { xs: '100%', md: 430 }, mx: 'auto', px: { xs: 2.5, md: 0 }, pt: { xs: 7, md: 9 }, overflow: 'hidden' }}>
         <Typography align="center" sx={{ fontSize: { xs: 21, md: 30 }, fontWeight: 500, color: '#d8d8d8', mb: { xs: 4.8, md: 6 } }}>
           HHTQ Anime
         </Typography>
@@ -254,12 +283,21 @@ function LoginScreen({ variant = 'empty' }) {
         <Typography align="center" sx={{ mt: 2.35, mb: 1.45, color: '#d8d8d8', fontSize: 12, fontWeight: 700 }}>
           Đăng nhập với
         </Typography>
-
         <Stack spacing={1.3}>
-          <SocialButton provider="Google" />
-          <SocialButton provider="Facebook" />
-        </Stack>
 
+          <Box sx={{ width: '100%', overflow: 'hidden', '& > div': { width: '100% !important' }, '& iframe': { width: '100% !important', maxWidth: '100% !important' } }}>
+            <GoogleLogin
+              width="100%"
+              onSuccess={handleGoogleSuccess}
+              onError={() => {
+                console.log('Google Login Failed');
+              }}
+            />
+          </Box>
+
+          <SocialButton provider="Facebook" />
+
+        </Stack>
         <Typography align="center" sx={{ mt: 2.2, color: '#d8d8d8', fontSize: 12, fontWeight: 700 }}>
           Bạn chưa có tài khoản?{' '}
           <Box component="span" onClick={() => { window.location.href = '/register'; }} sx={{ color: authColors.orange, cursor: 'pointer' }}>

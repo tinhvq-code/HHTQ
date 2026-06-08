@@ -469,9 +469,9 @@ function useApiVideoItems() {
 export function SideMenuPage() {
   const menuItems = [
     [SportsEsportsOutlinedIcon, 'Anime', '/anime-menu'],
-    [ArticleOutlinedIcon, 'Truyá»‡n tranh', '/manga-menu'],
-    [CheckBoxOutlineBlankIcon, 'Tin tá»©c', '/news-menu'],
-    [LeaderboardOutlinedIcon, 'Báº£ng xáº¿p háº¡ng', '/ranking']
+    [ArticleOutlinedIcon, 'Truyện tranh ', '/manga-menu'],
+    [CheckBoxOutlineBlankIcon, 'Tin tức', '/news-menu'],
+    [LeaderboardOutlinedIcon, 'Bảng xếp hạng', '/ranking']
   ];
 
   return (
@@ -1057,6 +1057,33 @@ export function FeedbackFormPage() {
   const user = getCurrentUser();
   const [text, setText] = useState('');
   const [message, setMessage] = useState('');
+  const handleGoogleSuccess = (credentialResponse) => {
+    try {
+      const userInfo = jwtDecode(
+        credentialResponse.credential
+      );
+
+      console.log(userInfo);
+
+      const user = {
+        id: userInfo.sub,
+        email: userInfo.email,
+        fullName: userInfo.name,
+        avatar: userInfo.picture,
+        provider: 'google'
+      };
+
+      setSessionUser(user);
+
+      setMessage('Đăng nhập Google thành công');
+
+      setTimeout(() => {
+        window.location.href = '/home';
+      }, 500);
+    } catch (error) {
+      console.error(error);
+    }
+  };
   const feedbackType = new URLSearchParams(window.location.search).get('type') || 'general';
 
   const submitFeedback = async () => {

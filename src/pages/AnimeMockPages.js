@@ -36,7 +36,7 @@ import PageShell from '../components/PageShell.js';
 import PhoneFrame from '../components/PhoneFrame.js';
 import { fetchAnimeCatalog } from '../services/animeApi.js';
 import { clearSessionUser, getSessionUser, setSessionUser } from '../services/authSession.js';
-import { fetchSqlProfile, sendSqlFeedback, updateSqlProfile } from '../services/userApi.js';
+import { fetchUserProfile, sendUserFeedback, updateUserProfile } from '../services/userApi.js';
 
 const orange = '#ff9800';
 const bg = '#101010';
@@ -412,10 +412,10 @@ function useApiVideoItems() {
 
 export function SideMenuPage() {
   const menuItems = [
-    [SportsEsportsOutlinedIcon, 'Anime', '/home#anime'],
-    [ArticleOutlinedIcon, 'Truyện tranh', '/home#manga'],
-    [CheckBoxOutlineBlankIcon, 'Tin tức', '/home#news'],
-    [LeaderboardOutlinedIcon, 'Bảng xếp hạng', '/home#ranking']
+    [SportsEsportsOutlinedIcon, 'Anime', '/anime-menu'],
+    [ArticleOutlinedIcon, 'Truyện tranh', '/manga-menu'],
+    [CheckBoxOutlineBlankIcon, 'Tin tức', '/news-menu'],
+    [LeaderboardOutlinedIcon, 'Bảng xếp hạng', '/ranking']
   ];
 
   return (
@@ -423,8 +423,20 @@ export function SideMenuPage() {
       <TopBar title="Menu" />
       <Stack spacing={{ xs: 2.2, md: 3.4 }} sx={{ px: { xs: 2.1, md: 4 }, pt: { xs: 2.6, md: 4 }, color: muted }}>
         {menuItems.map(([Icon, label, path]) => (
-          <Stack key={label} onClick={() => go(path)} direction="row" alignItems="center" spacing={{ xs: 1.4, md: 2 }} sx={{ cursor: 'pointer' }}>
-            {createElement(Icon, { sx: { fontSize: { xs: 16, md: 26 }, color: '#8b8b8b' } })}
+          <Stack 
+            key={label} 
+            onClick={() => go(path)} 
+            direction="row" 
+            alignItems="center" 
+            spacing={{ xs: 1.4, md: 2 }} 
+            sx={{ 
+              cursor: 'pointer',
+              transition: '0.2s',
+              '&:hover': { color: '#ff9800' }, 
+              '&:hover .menu-icon': { color: '#ff9800' }
+            }}
+          >
+            {createElement(Icon, { className: 'menu-icon', sx: { fontSize: { xs: 16, md: 26 }, color: '#8b8b8b', transition: '0.2s' } })}
             <Typography sx={{ fontSize: { xs: 11.5, md: 18 }, fontWeight: 600 }}>{label}</Typography>
           </Stack>
         ))}
@@ -560,7 +572,7 @@ export function ProfilePage({ guest = false, language = false }) {
     }
 
     let ignore = false;
-    fetchSqlProfile(user.id)
+    fetchUserProfile(user.id)
       .then(({ profile: nextProfile }) => {
         if (ignore) return;
         setProfile(nextProfile);
@@ -674,7 +686,7 @@ export function EditProfilePage() {
     }
 
     let ignore = false;
-    fetchSqlProfile(user.id)
+    fetchUserProfile(user.id)
       .then(({ profile: nextProfile }) => {
         if (ignore) return;
         setValues({
@@ -715,7 +727,7 @@ export function EditProfilePage() {
     };
 
     try {
-      const { user: updatedUser } = await updateSqlProfile(user.id, nextProfile);
+      const { user: updatedUser } = await updateUserProfile(user.id, nextProfile);
       setSessionUser(updatedUser);
       go('/profile');
     } catch (error) {
@@ -952,7 +964,7 @@ export function FeedbackFormPage() {
     }
 
     try {
-      await sendSqlFeedback({
+      await sendUserFeedback({
         userId: user?.id || null,
         type: feedbackType,
         content: text.trim()

@@ -1,6 +1,6 @@
-import { isRunning, readPid, removePid } from './api-process.js';
+/*import { isRunning, readPid, removePid } from './api-process.js';
 
-/* global process */
+/* global process 
 
 const pid = readPid();
 
@@ -18,3 +18,4 @@ if (!isRunning(pid)) {
 process.kill(pid, 'SIGTERM');
 removePid();
 console.log(`Da tat API SQL nen PID ${pid}.`);
+*/

@@ -17,27 +17,28 @@ const requestJson = async (path, options = {}) => {
   return data;
 };
 
-export const loginWithSql = (payload) =>
+
+export const loginUser = (payload) =>
   requestJson('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify(payload)
   });
 
-export const registerWithSql = (payload) =>
+export const registerUser = (payload) =>
   requestJson('/api/auth/register', {
     method: 'POST',
     body: JSON.stringify(payload)
   });
 
-export const fetchSqlProfile = (userId) => requestJson(`/api/users/${userId}/profile`);
+export const fetchUserProfile = (userId) => requestJson(`/api/users/${userId}/profile`);
 
-export const updateSqlProfile = (userId, payload) =>
+export const updateUserProfile = (userId, payload) =>
   requestJson(`/api/users/${userId}/profile`, {
     method: 'PUT',
     body: JSON.stringify(payload)
   });
 
-export const sendSqlFeedback = (payload) =>
+export const sendUserFeedback = (payload) =>
   requestJson('/api/feedback', {
     method: 'POST',
     body: JSON.stringify(payload)

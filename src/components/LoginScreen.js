@@ -7,7 +7,7 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import { Box, Button, IconButton, InputAdornment, Stack, TextField, Typography } from '@mui/material';
 import { setSessionUser } from '../services/authSession.js';
-import { loginWithSql } from '../services/userApi.js';
+import { loginUser } from '../services/userApi.js';
 import PhoneFrame from './PhoneFrame.js';
 
 export const authColors = {
@@ -182,7 +182,7 @@ function LoginScreen({ variant = 'empty' }) {
 
     if (!nextErrors.email && !nextErrors.password) {
       try {
-        const { user } = await loginWithSql({ email, password: values.password });
+        const { user } = await loginUser({ email, password: values.password });
 
         setSessionUser(user);
         setErrors({ email: '', password: '' });

@@ -1,3 +1,7 @@
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+
+// Các trang cũ của hệ thống
 import {
   ChangePasswordPage,
   EditProfilePage,
@@ -21,6 +25,15 @@ import NoWifiPage from './pages/NoWifiPage.js';
 import RegisterErrorPage from './pages/RegisterErrorPage.js';
 import RegisterFilledPage from './pages/RegisterFilledPage.js';
 import RegisterPage from './pages/RegisterPage.js';
+
+// Các trang giao diện mới thêm vào
+import AnimeRankingPage from './pages/AnimeRankingPage.js';
+import AnimeMenuPage from './pages/AnimeMenuPage.js';
+import AnimeDetailPage from './pages/AnimeDetailPage.js';
+import MangaMenuPage from './pages/MangaMenuPage.js';
+import MangaDetailPage from './pages/MangaDetailPage.js';
+import NewsMenuPage from './pages/NewsMenuPage.js';
+import NewsDetailPage from './pages/NewsDetailPage.js';
 
 const routes = [
   { path: '/home', label: 'Trang chủ anime', element: <MenuPage /> },
@@ -51,20 +64,35 @@ const routes = [
   { path: '/login-error', label: 'Login (3)', element: <LoginErrorPage /> },
   { path: '/register', label: 'Register (1)', element: <RegisterPage /> },
   { path: '/register-filled', label: 'Register (2)', element: <RegisterFilledPage /> },
-  { path: '/register-error', label: 'Register (3)', element: <RegisterErrorPage /> }
+  { path: '/register-error', label: 'Register (3)', element: <RegisterErrorPage /> },
+
+  // Danh sách đường dẫn cho các trang mới
+  { path: '/ranking', label: 'Bảng Xếp Hạng', element: <AnimeRankingPage /> },
+  { path: '/anime-menu', label: 'Menu Anime', element: <AnimeMenuPage /> },
+  { path: '/anime-detail', label: 'Chi Tiết Anime', element: <AnimeDetailPage /> },
+  { path: '/manga-menu', label: 'Menu Manga', element: <MangaMenuPage /> },
+  { path: '/manga-detail', label: 'Chi Tiết Manga', element: <MangaDetailPage /> },
+  { path: '/news-menu', label: 'Menu Tin Tức', element: <NewsMenuPage /> },
+  { path: '/news-detail', label: 'Chi Tiết Tin Tức', element: <NewsDetailPage /> }
 ];
 
 function App() {
-  const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
-
-  if (currentPath === '/') {
-    window.location.replace('/login');
-    return null;
-  }
-
-  const route = routes.find((item) => item.path === currentPath);
-
-  return route?.element ?? <LoginPage />;
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Tự động chuyển hướng trang chủ về login nếu chưa đăng nhập */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        
+        {/* Lặp qua danh sách để tạo ra các Route */}
+        {routes.map((route) => (
+          <Route key={route.path} path={route.path} element={route.element} />
+        ))}
+        
+        {/* Nếu gõ sai đường dẫn thì mặc định về trang Login */}
+        <Route path="*" element={<LoginPage />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
 export default App;

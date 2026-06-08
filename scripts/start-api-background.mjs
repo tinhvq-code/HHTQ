@@ -1,9 +1,9 @@
-import { spawn } from 'node:child_process';
+/*import { spawn } from 'node:child_process';
 import { mkdirSync, openSync } from 'node:fs';
 import { join } from 'node:path';
 import { isRunning, readPid, writePid } from './api-process.js';
 
-/* global process */
+/* global process 
 
 const currentPid = readPid();
 
@@ -31,3 +31,4 @@ writePid(child.pid);
 console.log(`Da bat API SQL o nen. PID: ${child.pid}`);
 console.log('Frontend co the chay rieng bang: npm run dev:client');
 console.log('Xem log API tai: logs/api.out.log va logs/api.err.log');
+*/

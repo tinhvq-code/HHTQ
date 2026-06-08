@@ -8,7 +8,7 @@ import PhoneOutlinedIcon from '@mui/icons-material/PhoneOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import { Box, Button, InputAdornment, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { setSessionUser } from '../services/authSession.js';
-import { registerWithSql } from '../services/userApi.js';
+import { registerUser } from '../services/userApi.js';
 import { AuthInput, AuthTabs, SocialButton, authColors, authInputSx, normalizeEmail } from './LoginScreen.js';
 import PhoneFrame from './PhoneFrame.js';
 
@@ -118,7 +118,7 @@ function RegisterScreen({ variant = 'empty' }) {
     }
 
     try {
-      const { user } = await registerWithSql({
+      const { user } = await registerUser({
         fullName: values.fullName.trim(),
         email: normalizeEmail(values.email),
         phone: values.phone.trim(),

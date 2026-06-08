@@ -1,7 +1,7 @@
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+/*import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-/* global process */
+/* global process 
 
 export const pidFile = join(process.cwd(), '.api-server.pid');
 
@@ -36,3 +36,4 @@ export const isRunning = (pid) => {
     return false;
   }
 };
+*/

@@ -1,7 +1,7 @@
-import dotenv from 'dotenv';
+/*import dotenv from 'dotenv';
 import sql from 'mssql';
 
-/* global process */
+/* global process 
 
 dotenv.config();
 
@@ -32,3 +32,4 @@ try {
 } finally {
   await pool.close();
 }
+*/

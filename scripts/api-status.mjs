@@ -1,6 +1,6 @@
-import { isRunning, readPid } from './api-process.js';
+/*import { isRunning, readPid } from './api-process.js';
 
-/* global process */
+/* global process 
 
 const pid = readPid();
 
@@ -10,3 +10,4 @@ if (isRunning(pid)) {
 }
 
 console.log('API SQL chua chay o nen.');
+*/

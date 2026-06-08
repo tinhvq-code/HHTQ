@@ -65,3 +65,9 @@ export const sendUserFeedback = (payload) =>
     method: 'POST',
     body: JSON.stringify(payload)
   });
+  
+  export const loginWithGoogle = (accessToken) =>
+  requestJson('/api/auth/google', {
+    method: 'POST',
+    body: JSON.stringify({ accessToken })
+  });

@@ -6,8 +6,9 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import { Box, Button, IconButton, InputAdornment, Stack, TextField, Typography } from '@mui/material';
+import { useGoogleLogin } from '@react-oauth/google';
 import { setSessionUser } from '../services/authSession.js';
-import { loginUser } from '../services/userApi.js';
+import { loginUser, loginWithGoogle } from '../services/userApi.js';
 import PhoneFrame from './PhoneFrame.js';
 
 export const authColors = {
@@ -116,14 +117,19 @@ export function AuthTabs({ active }) {
   );
 }
 
-export function SocialButton({ provider }) {
+export function SocialButton({ provider, onGoogleSuccess }) {
   const isGoogle = provider === 'Google';
+
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: onGoogleSuccess,
+    onError: (error) => console.log('Đăng nhập thất bại:', error)
+  });
 
   return (
     <Button
       fullWidth
       variant="outlined"
-      onClick={() => window.alert(`${provider} chưa hỗ trợ đăng nhập.`)}
+      onClick={isGoogle ? handleGoogleLogin : () => window.alert(`${provider} chưa hỗ trợ đăng nhập.`)}
       startIcon={isGoogle ? <GoogleIcon sx={{ color: '#4285f4' }} /> : <FacebookRoundedIcon sx={{ color: '#4267b2' }} />}
       sx={{
         height: { xs: 34, md: 44 },
@@ -205,6 +211,19 @@ function LoginScreen({ variant = 'empty' }) {
     setErrors(nextErrors);
   };
 
+  const handleGoogleSuccess = async (tokenResponse) => {
+    try {
+      const { user } = await loginWithGoogle(tokenResponse.access_token);
+      setSessionUser(user);
+      setMessage('Đăng nhập Google thành công.');
+      window.setTimeout(() => {
+        window.location.href = '/home';
+      }, 500);
+    } catch (error) {
+      setErrors((current) => ({ ...current, email: 'Không thể đăng nhập bằng Google.' }));
+    }
+  };
+
   const fieldState = (name) => {
     if (errors[name]) return 'error';
     if (focused === name || isFilled) return 'focused';
@@ -256,7 +275,7 @@ function LoginScreen({ variant = 'empty' }) {
         </Typography>
 
         <Stack spacing={1.3}>
-          <SocialButton provider="Google" />
+          <SocialButton provider="Google" onGoogleSuccess={handleGoogleSuccess} />
           <SocialButton provider="Facebook" />
         </Stack>
 

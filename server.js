@@ -468,7 +468,7 @@ app.get('/', (req, res) => {
     database: isSqlReady() ? 'sql-server' : isMongoReady() ? 'mongodb' : 'local-json-fallback',
     sqlStatus,
     frontend: 'Open the Vite URL, for example http://127.0.0.1:5177',
-    endpoints: ['/api/test-db', '/api/auth/login', '/api/auth/register']
+    endpoints: ['/api/test-db', '/api/auth/login', '/api/auth/register', '/api/auth/google']
   });
 });
 
@@ -604,6 +604,63 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(500).json({ message: 'Không thể đăng nhập.', error: error.message });
   }
 });
+
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const { accessToken } = req.body;
+    if (!accessToken) return res.status(400).json({ message: 'Thiếu mã xác thực Google.' });
+
+    const googleRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    const googleUser = await googleRes.json();
+
+    if (!googleUser.email) {
+      return res.status(400).json({ message: 'Không thể lấy thông tin từ Google.' });
+    }
+
+    const normalizedEmail = normalizeEmail(googleUser.email);
+    const fullName = googleUser.name;
+    const avatar = googleUser.picture || '';
+    const password = 'GOOGLE_AUTH_NO_PASS'; 
+
+    if (isSqlReady()) {
+      let user = await findSqlUserByEmail(normalizedEmail);
+      if (!user) {
+        user = await createSqlUser({ fullName, email: normalizedEmail, phone: '', birthday: '', gender: '', password });
+        await sqlPool.request().input('userId', sql.Int, Number(user.id)).input('avatar', sql.NVarChar(sql.MAX), avatar).query('UPDATE dbo.UserProfiles SET avatar = @avatar WHERE userId = @userId');
+      }
+      return res.json({ user: publicUser(user), profile: await getSqlProfile(user), source: 'sql-server' });
+    }
+
+    if (isMongoReady()) {
+      let user = await User.findOne({ email: normalizedEmail });
+      if (!user) {
+        user = await User.create({ fullName, email: normalizedEmail, passwordHash: password });
+        await UserProfile.create({ userId: user._id, email: user.email, fullName: user.fullName, avatar });
+      }
+      let profile = await UserProfile.findOne({ userId: user._id });
+      if (!profile) {
+         profile = await UserProfile.create({ userId: user._id, email: user.email, fullName: user.fullName, avatar });
+      }
+      return res.json({ user, profile, source: 'mongodb' });
+    }
+
+    let localUser = await findLocalUserByEmail(normalizedEmail);
+    if (!localUser) {
+      localUser = await createLocalUser({ fullName, email: normalizedEmail, phone: '', birthday: '', gender: '', password });
+    }
+    const user = publicUser(localUser);
+    const profile = profileFromUser(user);
+    profile.avatar = avatar; 
+    return res.json({ user, profile, source: 'local-json-fallback' });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Lỗi đăng nhập Google.', error: error.message });
+  }
+});
+
 app.get('/api/users/:userId/profile', async (req, res) => {
   try {
     if (isSqlReady() && /^\d+$/.test(String(req.params.userId))) {
@@ -706,4 +763,3 @@ await connectSqlServer();
 app.listen(PORT, () => {
   console.log(`API server running at http://localhost:${PORT}`);
 });
-

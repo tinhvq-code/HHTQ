@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { GoogleOAuthProvider } from '@react-oauth/google'; 
 import { getSessionUser } from './services/authSession.js';
 
 import {
@@ -83,21 +84,23 @@ function RequireAuth({ children }) {
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Navigate to={getSessionUser() ? '/home' : '/login'} replace />} />
+    <GoogleOAuthProvider clientId="341514284901-outpikbnv837ah4hqg5k15a9qlopb1ts.apps.googleusercontent.com">
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Navigate to={getSessionUser() ? '/home' : '/login'} replace />} />
 
-        {publicRoutes.map((route) => (
-          <Route key={route.path} path={route.path} element={route.element} />
-        ))}
+          {publicRoutes.map((route) => (
+            <Route key={route.path} path={route.path} element={route.element} />
+          ))}
 
-        {protectedRoutes.map((route) => (
-          <Route key={route.path} path={route.path} element={<RequireAuth>{route.element}</RequireAuth>} />
-        ))}
+          {protectedRoutes.map((route) => (
+            <Route key={route.path} path={route.path} element={<RequireAuth>{route.element}</RequireAuth>} />
+          ))}
 
-        <Route path="*" element={<Navigate to={getSessionUser() ? '/home' : '/no-login'} replace />} />
-      </Routes>
-    </BrowserRouter>
+          <Route path="*" element={<Navigate to={getSessionUser() ? '/home' : '/no-login'} replace />} />
+        </Routes>
+      </BrowserRouter>
+    </GoogleOAuthProvider>
   );
 }
 

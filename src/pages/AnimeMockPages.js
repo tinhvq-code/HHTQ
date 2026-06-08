@@ -469,9 +469,9 @@ function useApiVideoItems() {
 export function SideMenuPage() {
   const menuItems = [
     [SportsEsportsOutlinedIcon, 'Anime', '/anime-menu'],
-    [ArticleOutlinedIcon, 'Truyá»‡n tranh', '/manga-menu'],
-    [CheckBoxOutlineBlankIcon, 'Tin tá»©c', '/news-menu'],
-    [LeaderboardOutlinedIcon, 'Báº£ng xáº¿p háº¡ng', '/ranking']
+    [ArticleOutlinedIcon, 'Truyện tranh', '/manga-menu'],
+    [CheckBoxOutlineBlankIcon, 'Tin tức', '/news-menu'],
+    [LeaderboardOutlinedIcon, 'Bảng xếp hạng', '/ranking']
   ];
 
   return (
@@ -544,7 +544,7 @@ export function SearchResultsPage() {
           </Stack>
 
           <Typography sx={{ color: '#dcdcdc', fontSize: { xs: 11.5, md: 18 }, fontWeight: 800, mb: { xs: 0.8, md: 1.6 } }}>
-            {normalizedQuery ? `Káº¿t quáº£ cho "${query}"` : 'Top anime'}
+            {normalizedQuery ? `Kết quả cho "${query}"` : 'Top anime'}
           </Typography>
 
           {results.length > 0 ? (
@@ -575,7 +575,7 @@ export function SearchResultsPage() {
 
 export function SearchEmptyPage() {
   return (
-    <PhonePage title="TĂ¬m kiáº¿m">
+    <PhonePage title="Tìm kiếm">
       <Box sx={{ height: '100%', bgcolor: bg }}>
         <TopBar search />
         <Stack alignItems="center" sx={{ pt: 14, px: 3, textAlign: 'center' }}>
@@ -1112,7 +1112,7 @@ function VideoActionSheet({ kind, closePath, deletePath, item }) {
       return;
     }
 
-    window.alert(`Chia sáº» phim: ${title}`);
+    window.alert(`Chia sẻ phim: ${title}`);
   };
 
   return (

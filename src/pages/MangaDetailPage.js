@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import PageShell from '../components/PageShell.js';
 import PhoneFrame from '../components/PhoneFrame.js';
 import { fetchHomeAnime } from '../services/animeApi.js';
+import { BottomNav } from './AnimeMockPages.js';
 
 const selectedMangaKey = 'selectedMangaDetail';
 
@@ -89,7 +90,8 @@ export default function MangaDetailPage() {
   return (
     <PageShell title="Đọc Truyện Tranh">
       <PhoneFrame>
-        <Box ref={scrollRef} sx={{ height: '100%', overflowY: 'auto', scrollbarWidth: 'none', backgroundColor: '#101010', color: '#fff', pb: { xs: 4, md: 6 } }}>
+        <Box sx={{ height: '100%', bgcolor: '#101010', position: 'relative', color: '#fff' }}>
+          <Box ref={scrollRef} sx={{ height: '100%', overflowY: 'auto', scrollbarWidth: 'none', pb: { xs: 9, md: 12 } }}>
           
           <Box sx={{ display: 'flex', alignItems: 'center', px: { xs: 1.2, md: 3 }, py: { xs: 1, md: 1.6 }, backgroundColor: '#101010', position: 'sticky', top: 0, zIndex: 100 }}>
             <IconButton size="small" sx={{ color: '#fff', p: 0.55 }} onClick={() => navigate(-1)}>
@@ -209,6 +211,8 @@ export default function MangaDetailPage() {
 
           </Box>
         </Box>
+        <BottomNav active="home" />
+      </Box>
       </PhoneFrame>
     </PageShell>
   );

@@ -18,6 +18,8 @@ import { getSessionUser } from '../services/authSession.js';
 const selectedAnimeKey = 'selectedAnimeDetail';
 const selectedMangaKey = 'selectedMangaDetail';
 const selectedNewsKey = 'selectedNewsDetail';
+const ANIME_PAGE_SIZE = 30;
+const MANGA_PAGE_SIZE = 30;
 
 const assetPosters = [
   '/assets/anime-01.jpg',
@@ -260,6 +262,44 @@ function ShowMore({ path = '/search' }) {
   );
 }
 
+function AnimePagination({ page, totalPages, onChange }) {
+  if (totalPages <= 1) return null;
+
+  const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
+
+  return (
+    <Stack
+      direction="row"
+      alignItems="center"
+      justifyContent="center"
+      spacing={{ xs: 0.6, md: 1 }}
+      sx={{ mt: { xs: 1.5, md: 2.4 }, flexWrap: 'wrap', rowGap: 1 }}
+    >
+      <Typography
+        onClick={() => page > 1 && onChange(page - 1)}
+        sx={{ px: { xs: 1, md: 1.25 }, height: { xs: 30, md: 36 }, display: 'grid', placeItems: 'center', border: '1px solid #343434', borderRadius: 0.6, color: page > 1 ? '#ddd' : '#555', fontSize: { xs: 10.5, md: 13 }, fontWeight: 800, cursor: page > 1 ? 'pointer' : 'default' }}
+      >
+        Trước
+      </Typography>
+      {pages.map((item) => (
+        <Typography
+          key={item}
+          onClick={() => onChange(item)}
+          sx={{ minWidth: { xs: 30, md: 36 }, height: { xs: 30, md: 36 }, display: 'grid', placeItems: 'center', border: `1px solid ${item === page ? '#ff9800' : '#343434'}`, borderRadius: 0.6, bgcolor: item === page ? '#ff9800' : 'transparent', color: item === page ? '#111' : '#ddd', fontSize: { xs: 11, md: 14 }, fontWeight: 900, cursor: 'pointer' }}
+        >
+          {item}
+        </Typography>
+      ))}
+      <Typography
+        onClick={() => page < totalPages && onChange(page + 1)}
+        sx={{ px: { xs: 1, md: 1.25 }, height: { xs: 30, md: 36 }, display: 'grid', placeItems: 'center', border: '1px solid #343434', borderRadius: 0.6, color: page < totalPages ? '#ddd' : '#555', fontSize: { xs: 10.5, md: 13 }, fontWeight: 800, cursor: page < totalPages ? 'pointer' : 'default' }}
+      >
+        Sau
+      </Typography>
+    </Stack>
+  );
+}
+
 function PosterTile({ item, compact = false, featured = false, onSelect }) {
   const [title, views, episode, imageSeed] = item;
   const seed = compact ? views : imageSeed;
@@ -375,6 +415,8 @@ function MenuPage() {
   const [toast, setToast] = useState('');
   const [homeData, setHomeData] = useState(null);
   const [apiError, setApiError] = useState('');
+  const [animePage, setAnimePage] = useState(1);
+  const [mangaPage, setMangaPage] = useState(1);
 
   useEffect(() => {
     const sectionId = window.location.hash.replace('#', '');
@@ -455,6 +497,25 @@ function MenuPage() {
     );
   }
 
+  const animeTotalPages = Math.max(1, Math.ceil(homeData.latestAnime.length / ANIME_PAGE_SIZE));
+  const activeAnimePage = Math.min(animePage, animeTotalPages);
+  const pagedAnime = homeData.latestAnime.slice((activeAnimePage - 1) * ANIME_PAGE_SIZE, activeAnimePage * ANIME_PAGE_SIZE);
+  const mangaTotalPages = Math.max(1, Math.ceil(homeData.manga.length / MANGA_PAGE_SIZE));
+  const activeMangaPage = Math.min(mangaPage, mangaTotalPages);
+  const pagedManga = homeData.manga.slice((activeMangaPage - 1) * MANGA_PAGE_SIZE, activeMangaPage * MANGA_PAGE_SIZE);
+  const changeAnimePage = (nextPage) => {
+    setAnimePage(nextPage);
+    window.setTimeout(() => {
+      document.getElementById('anime')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 40);
+  };
+  const changeMangaPage = (nextPage) => {
+    setMangaPage(nextPage);
+    window.setTimeout(() => {
+      document.getElementById('manga')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 40);
+  };
+
   return (
     <PageShell title="Menu">
       <PhoneFrame>
@@ -499,13 +560,13 @@ function MenuPage() {
           <Box id="anime" sx={{ px: { xs: 1.4, md: 3 }, py: { xs: 1.5, md: 3 }, borderTop: '1px solid #242424', scrollMarginTop: { xs: 56, md: 84 } }}>
             <SectionTitle>Tập mới nhất</SectionTitle>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }, gap: { xs: '16px 14px', md: '24px 24px' }, justifyItems: 'center' }}>
-              {homeData.latestAnime.map((item) => (
+              {pagedAnime.map((item) => (
                 <Box key={`${item[0]}-${item[3]}`} sx={{ width: '75%' }}>
                   <PosterTile item={item} featured onSelect={openAnime} />
                 </Box>
               ))}
             </Box>
-            <ShowMore />
+            <AnimePagination page={activeAnimePage} totalPages={animeTotalPages} onChange={changeAnimePage} />
           </Box>
 
           <Box id="ranking" sx={{ px: { xs: 1.4, md: 3 }, py: { xs: 1.4, md: 3 }, borderTop: '1px solid #242424', scrollMarginTop: { xs: 56, md: 84 } }}>
@@ -546,11 +607,11 @@ function MenuPage() {
           <Box id="manga" sx={{ px: { xs: 1.4, md: 3 }, py: { xs: 1.4, md: 3 }, borderTop: '1px solid #242424', scrollMarginTop: { xs: 56, md: 84 } }}>
             <SectionTitle>Truyện tranh</SectionTitle>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' }, gap: { xs: '14px 10px', md: '24px 18px' } }}>
-              {homeData.manga.map((item) => (
+              {pagedManga.map((item) => (
                 <PosterTile key={`${item[0]}-${item[1]}`} item={item} compact onSelect={openManga} />
               ))}
             </Box>
-            <ShowMore />
+            <AnimePagination page={activeMangaPage} totalPages={mangaTotalPages} onChange={changeMangaPage} />
           </Box>
         </Box>
 

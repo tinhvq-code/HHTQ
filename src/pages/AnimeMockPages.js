@@ -1,4 +1,4 @@
-import { createElement, useEffect, useState } from 'react';
+﻿import { createElement, useEffect, useState } from 'react';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 import CakeOutlinedIcon from '@mui/icons-material/CakeOutlined';
@@ -35,7 +35,15 @@ import { Box, Button, IconButton, Stack, TextareaAutosize, Typography } from '@m
 import PageShell from '../components/PageShell.js';
 import PhoneFrame from '../components/PhoneFrame.js';
 import { fetchAnimeCatalog } from '../services/animeApi.js';
-import { clearSessionUser, getSessionUser, setSessionUser } from '../services/authSession.js';
+import {
+  clearSessionUser,
+  getSessionUser,
+  getUserProfileCache,
+  readUserList,
+  setSessionUser,
+  setUserProfileCache,
+  writeUserList
+} from '../services/authSession.js';
 import { fetchUserProfile, sendUserFeedback, updateUserProfile } from '../services/userApi.js';
 
 const orange = '#ff9800';
@@ -70,30 +78,29 @@ const poster = (image, w = 360, h = 220) => {
   return assetPosters[index] || `/assets/anime-01.jpg?w=${w}&h=${h}`;
 };
 const go = (path) => {
-  window.location.href = path;
+  if (window.location.pathname === path) return;
+
+  window.history.pushState({}, '', path);
+  window.dispatchEvent(new PopStateEvent('popstate'));
 };
 
 const selectedAnimeKey = 'selectedAnimeDetail';
+const watchedAnimeKey = 'watchedAnimeItems';
 const favoriteAnimeKey = 'favoriteAnimeItems';
 const followedAnimeKey = 'followedAnimeItems';
 
 const readSavedVideoItems = (key) => {
-  try {
-    const items = JSON.parse(window.localStorage.getItem(key));
-    return Array.isArray(items) ? items : [];
-  } catch {
-    return [];
-  }
+  return readUserList(key);
 };
 
 const writeSavedVideoItems = (key, items) => {
-  window.localStorage.setItem(key, JSON.stringify(items));
+  writeUserList(key, items);
 };
 
 const videoItemToDetail = (item) => ({
   title: item?.[0] || '',
-  eps: item?.[1] || 'Tap moi',
-  views: item?.[2] || 'Dang cap nhat luot xem',
+  eps: item?.[1] || 'Táº­p má»›i',
+  views: item?.[2] || 'Äang cáº­p nháº­t lÆ°á»£t xem',
   img: item?.[3] || '',
   trailer: item?.[4] || null,
   genres: item?.[5] || []
@@ -135,15 +142,17 @@ const getCurrentUser = () => {
 
 const getProfileInfo = () => {
   const user = getCurrentUser();
+  const cachedProfile = getUserProfileCache(user);
 
   return {
     userId: user?.id,
-    updated: Boolean(user?.fullName),
-    fullName: user?.fullName || '',
+    updated: Boolean(cachedProfile?.updated || user?.fullName),
+    fullName: cachedProfile?.fullName || user?.fullName || '',
     email: user?.email || '',
-    phone: '',
-    birthday: '',
-    gender: ''
+    phone: cachedProfile?.phone || user?.phone || '',
+    birthday: cachedProfile?.birthday || user?.birthday || '',
+    gender: cachedProfile?.gender || user?.gender || '',
+    avatar: cachedProfile?.avatar || user?.avatar || ''
   };
 };
 
@@ -359,16 +368,16 @@ function SearchBox({ placeholder = 'Anime, truyện tranh, nhân vật...', valu
     </Stack>
   );
 }
-function BottomNav({ active = 'home' }) {
+export function BottomNav({ active = 'home' }) {
   const items = [
     [HomeIcon, 'Trang chủ', 'home', '/home'],
-    [FavoriteIcon, 'Phim đã thích', 'like', '/favorites'],
-    [NotificationsIcon, 'Phim đã theo dõi', 'follow', '/followed'],
+    [FavoriteIcon, 'Phim yêu thích', 'like', '/favorites'],
+    [NotificationsIcon, 'Phim theo dõi  ', 'follow', '/followed'],
     [SettingsIcon, 'Cài đặt', 'settings', getCurrentUser() ? '/profile' : '/no-login']
   ];
 
   return (
-    <Stack direction="row" justifyContent="space-around" sx={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: { xs: 55, md: 76 }, bgcolor: '#151515', borderTop: `1px solid ${line}` }}>
+    <Stack direction="row" justifyContent="space-around" sx={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: { xs: 55, md: 76 }, bgcolor: '#151515', borderTop: `1px solid ${line}`, zIndex: 20 }}>
       {items.map(([Icon, label, key, path]) => (
         <Stack key={key} onClick={() => go(path)} alignItems="center" justifyContent="center" spacing={0.25} sx={{ width: { xs: 66, md: 190 }, color: active === key ? orange : '#606060', cursor: 'pointer' }}>
           {createElement(Icon, { sx: { fontSize: { xs: 20, md: 30 } } })}
@@ -377,8 +386,7 @@ function BottomNav({ active = 'home' }) {
       ))}
     </Stack>
   );
-}
-function PlayThumb({ seed, wide = false }) {
+} function PlayThumb({ seed, wide = false }) {
   return (
     <Box sx={{ width: wide ? { xs: 118, md: 220 } : { xs: 103, md: 180 }, height: wide ? { xs: 67, md: 124 } : { xs: 58, md: 104 }, flexShrink: 0, position: 'relative', borderRadius: 0.4, background: `url(${poster(seed)}) center/cover`, overflow: 'hidden' }}>
       <Box sx={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', bgcolor: 'rgba(0,0,0,0.08)' }}>
@@ -412,7 +420,7 @@ function ApiOnlyState({ title, error }) {
       <Box sx={{ height: '100%', bgcolor: bg, display: error ? 'grid' : 'block', placeItems: 'center', px: 3, textAlign: 'center' }}>
         {error && (
           <Typography sx={{ color: '#ffb74d', fontSize: { xs: 12, md: 18 }, fontWeight: 800 }}>
-            Lỗi API: {error}
+            Lá»—i API: {error}
           </Typography>
         )}
       </Box>
@@ -471,16 +479,16 @@ export function SideMenuPage() {
       <TopBar title="Menu" />
       <Stack spacing={{ xs: 2.2, md: 3.4 }} sx={{ px: { xs: 2.1, md: 4 }, pt: { xs: 2.6, md: 4 }, color: muted }}>
         {menuItems.map(([Icon, label, path]) => (
-          <Stack 
-            key={label} 
-            onClick={() => go(path)} 
-            direction="row" 
-            alignItems="center" 
-            spacing={{ xs: 1.4, md: 2 }} 
-            sx={{ 
+          <Stack
+            key={label}
+            onClick={() => go(path)}
+            direction="row"
+            alignItems="center"
+            spacing={{ xs: 1.4, md: 2 }}
+            sx={{
               cursor: 'pointer',
               transition: '0.2s',
-              '&:hover': { color: '#ff9800' }, 
+              '&:hover': { color: '#ff9800' },
               '&:hover .menu-icon': { color: '#ff9800' }
             }}
           >
@@ -496,7 +504,7 @@ export function SideMenuPage() {
 export function SearchResultsPage() {
   const initialQuery = new URLSearchParams(window.location.search).get('q') || '';
   const [query, setQuery] = useState(initialQuery);
-  const [chips, setChips] = useState(['Tuyáº¿t Æ¯ng', 'Váº¡n Cá»• Kiáº¿m TĂ´n', 'Long Tá»™c', 'Ma Vá»±c', 'Tinh HĂ ', 'Ngá»± Kiáº¿m', 'Huyá»n SÆ°']);
+  const [chips, setChips] = useState(['']);
   const { items: searchCatalog, loading: searchLoading, error: searchError } = useApiVideoItems();
   const normalizedQuery = query.trim().toLowerCase();
   const results = normalizedQuery
@@ -513,16 +521,16 @@ export function SearchResultsPage() {
   };
 
   if (searchLoading || searchError) {
-    return <ApiOnlyState title="Search" error={searchError} />;
+    return <ApiOnlyState title="Tìm kiếm" error={searchError} />;
   }
 
   return (
-    <PhonePage title="Search">
+    <PhonePage title="Tìm kiếm">
       <Box sx={{ height: '100%', bgcolor: bg, overflowY: 'auto', scrollbarWidth: 'none' }}>
         <TopBar search searchValue={query} onSearchChange={setQuery} onSearchSubmit={() => submitSearch()} />
         <Box sx={{ px: { xs: 1.6, md: 4 }, pt: { xs: 1.5, md: 3 }, pb: 4 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ color: muted, mb: 1.1 }}>
-            <Typography sx={{ fontSize: { xs: 10.5, md: 16 }, fontWeight: 600 }}>Lá»‹ch sá»­ tĂ¬m kiáº¿m</Typography>
+            <Typography sx={{ fontSize: { xs: 10.5, md: 16 }, fontWeight: 600 }}>Tìm kiếm</Typography>
             <IconButton size="small" onClick={() => setChips([])} sx={{ color: muted, p: 0 }}>
               <DeleteOutlineIcon sx={{ fontSize: { xs: 15, md: 24 } }} />
             </IconButton>
@@ -536,7 +544,7 @@ export function SearchResultsPage() {
           </Stack>
 
           <Typography sx={{ color: '#dcdcdc', fontSize: { xs: 11.5, md: 18 }, fontWeight: 800, mb: { xs: 0.8, md: 1.6 } }}>
-            {normalizedQuery ? `Káº¿t quáº£ cho "${query}"` : 'TĂ¬m kiáº¿m hot'}
+            {normalizedQuery ? `Káº¿t quáº£ cho "${query}"` : 'Top anime'}
           </Typography>
 
           {results.length > 0 ? (
@@ -564,9 +572,10 @@ export function SearchResultsPage() {
     </PhonePage>
   );
 }
+
 export function SearchEmptyPage() {
   return (
-    <PhonePage title="Search">
+    <PhonePage title="TĂ¬m kiáº¿m">
       <Box sx={{ height: '100%', bgcolor: bg }}>
         <TopBar search />
         <Stack alignItems="center" sx={{ pt: 14, px: 3, textAlign: 'center' }}>
@@ -577,14 +586,13 @@ export function SearchEmptyPage() {
           </Box>
           <Typography sx={{ color: '#fff', fontSize: 13, fontWeight: 800, mt: 2.2 }}>KhĂ´ng tĂ¬m tháº¥y káº¿t quáº£</Typography>
           <Typography sx={{ color: '#d7d7d7', fontSize: 10.5, fontWeight: 700, mt: 1.5, lineHeight: 1.35 }}>
-            HĂ£y tĂ¬m kiáº¿m thĂ´ng tin anime, truyá»‡n tranh hoáº·c tin tá»©c.
+            Anime, truyện tranh.
           </Typography>
         </Stack>
       </Box>
     </PhonePage>
   );
 }
-
 function ProfileMenu({ disabled = false }) {
   const color = disabled ? '#5f5f5f' : '#777';
   const copy = getLanguageCopy();
@@ -621,17 +629,19 @@ export function ProfilePage({ guest = false, language = false }) {
     }
 
     let ignore = false;
+    const profileOwner = { id: user.id, email: user.email };
     fetchUserProfile(user.id)
       .then(({ profile: nextProfile }) => {
         if (ignore) return;
+        setUserProfileCache(nextProfile, profileOwner);
         setProfile(nextProfile);
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return () => {
       ignore = true;
     };
-  }, [guest, user?.id]);
+  }, [guest, user?.email, user?.id]);
 
   return (
     <PhonePage title={guest ? copy.guestProfileTitle : copy.profileTitle}>
@@ -713,6 +723,8 @@ export function EditProfilePage() {
   const user = getCurrentUser();
   const profile = getProfileInfo();
   const [saveError, setSaveError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
   const [values, setValues] = useState({
     fullName: profile.updated && profile.fullName ? profile.fullName : '',
     email: profile.email || user?.email || '',
@@ -722,22 +734,26 @@ export function EditProfilePage() {
     avatar: profile.updated && profile.avatar ? profile.avatar : ''
   });
   const fields = [
-    ['fullName', 'Há» vĂ  TĂªn', PersonOutlineIcon, 'text', 'Nháº­p há» vĂ  tĂªn'],
+    ['fullName', 'Họ và tên', PersonOutlineIcon, 'text', 'Nhập họ và tên'],
     ['email', 'Email', MailOutlineIcon, 'email', 'Email', true],
-    ['phone', 'Sá»‘ Ä‘iá»‡n thoáº¡i', PhoneOutlinedIcon, 'tel', 'Nháº­p sá»‘ Ä‘iá»‡n thoáº¡i'],
-    ['birthday', 'NgĂ y sinh', CakeOutlinedIcon, 'date', ''],
-    ['gender', 'Giá»›i tĂ­nh', PersonOutlineIcon, 'select', 'Chá»n giá»›i tĂ­nh'],
-    ['avatar', 'áº¢nh Ä‘áº¡i diá»‡n', ImageOutlinedIcon, 'text', 'DĂ¡n Ä‘Æ°á»ng dáº«n áº£nh Ä‘áº¡i diá»‡n']
+    ['phone', 'Số điện thoại', PhoneOutlinedIcon, 'tel', 'Nhập số điện thoại'],
+    ['birthday', 'Ngày sinh', CakeOutlinedIcon, 'date', ''],
+    ['gender', 'Giới tính', PersonOutlineIcon, 'select', 'Chọn giới tính'],
+    ['avatar', 'Ảnh đại diện', ImageOutlinedIcon, 'text', 'Dán đường dẫn ảnh đại diện']
   ];
+
   useEffect(() => {
     if (!user?.id) {
+      go('/no-login');
       return undefined;
     }
 
     let ignore = false;
+    const profileOwner = { id: user.id, email: user.email };
     fetchUserProfile(user.id)
       .then(({ profile: nextProfile }) => {
         if (ignore) return;
+        setUserProfileCache(nextProfile, profileOwner);
         setValues({
           fullName: nextProfile.updated && nextProfile.fullName ? nextProfile.fullName : '',
           email: nextProfile.email || user?.email || '',
@@ -747,25 +763,50 @@ export function EditProfilePage() {
           avatar: nextProfile.updated && nextProfile.avatar ? nextProfile.avatar : ''
         });
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return () => {
       ignore = true;
     };
-  }, [user?.id, user?.email]);
+  }, [user?.email, user?.id]);
 
   const setFieldValue = (name, value) => {
     setSaveError('');
+    setFieldErrors((current) => ({ ...current, [name]: '' }));
     setValues((current) => ({ ...current, [name]: value }));
   };
+
+  const validateProfile = () => {
+    const nextErrors = {};
+
+    if (!values.fullName.trim()) {
+      nextErrors.fullName = 'Vui lòng nhập họ và tên.';
+    }
+
+    if (values.phone.trim() && !/^[0-9]{9,11}$/.test(values.phone.trim())) {
+      nextErrors.phone = 'Số điện thoại phải có 9-11 chữ số.';
+    }
+
+    if (values.avatar.trim() && !/^(https?:\/\/|\/)/.test(values.avatar.trim())) {
+      nextErrors.avatar = 'Ảnh đại diện phải là URL hợp lệ hoặc đường dẫn nội bộ.';
+    }
+
+    setFieldErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
   const saveProfile = async () => {
     if (!user?.id) {
-      setSaveError('Vui long dang nhap truoc khi cap nhat ho so.');
+      go('/no-login');
+      return;
+    }
+
+    if (!validateProfile()) {
       return;
     }
 
     const nextProfile = {
-      userId: user?.id,
+      userId: user.id,
       updated: Boolean(values.fullName.trim() || values.phone.trim() || values.birthday || values.gender || values.avatar.trim()),
       fullName: values.fullName.trim(),
       email: values.email.trim(),
@@ -776,18 +817,22 @@ export function EditProfilePage() {
     };
 
     try {
-      const { user: updatedUser } = await updateUserProfile(user.id, nextProfile);
-      setSessionUser(updatedUser);
+      setIsSaving(true);
+      const { user: updatedUser, profile: savedProfile } = await updateUserProfile(user.id, nextProfile);
+      setUserProfileCache(savedProfile || nextProfile, updatedUser || user);
+      setSessionUser(updatedUser || user);
       go('/profile');
     } catch (error) {
-      setSaveError(error?.message || 'Khong the luu ho so.');
+      setSaveError(error?.message || 'Không thể lưu hồ sơ.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   return (
-    <PhonePage title="Chá»‰nh Sá»­a Há»“ SÆ¡">
+    <PhonePage title="Chỉnh sửa hồ sơ">
       <Box sx={{ height: '100%', bgcolor: bg }}>
-        <TopBar title="Há»“ sÆ¡" />
+        <TopBar title="Hồ sơ" />
         <Stack alignItems="center" sx={{ pt: 2.5 }}>
           <ProfileAvatar profile={{ ...profile, updated: Boolean(values.avatar), avatar: values.avatar }} size={70} editable />
         </Stack>
@@ -795,7 +840,7 @@ export function EditProfilePage() {
           {fields.map(([name, label, Icon, type, placeholder, disabled]) => (
             <Box key={name}>
               <Typography sx={{ color: '#8b8b8b', fontSize: 10.5, fontWeight: 600, mb: 0.55 }}>{label}</Typography>
-              <Stack direction="row" alignItems="center" sx={{ minHeight: 34, px: 1, border: `1px solid ${disabled ? '#343434' : '#3a3a3a'}`, bgcolor: disabled ? '#292929' : 'transparent', borderRadius: 0.5, color: disabled ? '#777' : '#e4e4e4' }}>
+              <Stack direction="row" alignItems="center" sx={{ minHeight: 34, px: 1, border: `1px solid ${fieldErrors[name] ? '#ff8a80' : disabled ? '#343434' : '#3a3a3a'}`, bgcolor: disabled ? '#292929' : 'transparent', borderRadius: 0.5, color: disabled ? '#777' : '#e4e4e4' }}>
                 {createElement(Icon, { sx: { fontSize: 16, color: '#898989', mr: 1 } })}
                 {type === 'select' ? (
                   <>
@@ -807,8 +852,8 @@ export function EditProfilePage() {
                     >
                       <Box component="option" value="" sx={{ color: '#111' }}>{placeholder}</Box>
                       <Box component="option" value="Nam" sx={{ color: '#111' }}>Nam</Box>
-                      <Box component="option" value="Ná»¯" sx={{ color: '#111' }}>Ná»¯</Box>
-                      <Box component="option" value="KhĂ¡c" sx={{ color: '#111' }}>KhĂ¡c</Box>
+                      <Box component="option" value="Nữ" sx={{ color: '#111' }}>Nữ</Box>
+                      <Box component="option" value="Khác" sx={{ color: '#111' }}>Khác</Box>
                     </Box>
                     <KeyboardArrowDownIcon sx={{ fontSize: 16, color: '#999' }} />
                   </>
@@ -818,7 +863,7 @@ export function EditProfilePage() {
                     type={type}
                     disabled={disabled}
                     value={values[name]}
-                    placeholder={placeholder || 'ChÆ°a cáº­p nháº­t'}
+                    placeholder={placeholder || 'Chưa cập nhật'}
                     onChange={(event) => setFieldValue(name, event.target.value)}
                     sx={{
                       flex: 1,
@@ -836,34 +881,30 @@ export function EditProfilePage() {
                   />
                 )}
               </Stack>
+              {fieldErrors[name] ? <Typography sx={{ color: '#ff8a80', fontSize: 10, fontWeight: 800, mt: 0.45 }}>{fieldErrors[name]}</Typography> : null}
             </Box>
           ))}
           {saveError ? <Typography sx={{ color: '#ff8a80', fontSize: 10.5, fontWeight: 800 }}>{saveError}</Typography> : null}
-          <Button onClick={saveProfile} fullWidth variant="contained" sx={{ mt: 1.9, height: 36, bgcolor: orange, boxShadow: 'none', borderRadius: 0.5, fontSize: 11, fontWeight: 800, '&:hover': { bgcolor: orange, boxShadow: 'none' } }}>
-            LÆ°u
+          <Button disabled={isSaving} onClick={saveProfile} fullWidth variant="contained" sx={{ mt: 1.9, height: 36, bgcolor: orange, boxShadow: 'none', borderRadius: 0.5, fontSize: 11, fontWeight: 800, '&:hover': { bgcolor: orange, boxShadow: 'none' }, '&.Mui-disabled': { bgcolor: '#5f3f12', color: '#aaa' } }}>
+            {isSaving ? 'Đang lưu...' : 'Lưu'}
           </Button>
         </Stack>
       </Box>
     </PhonePage>
   );
 }
-
 export function HistoryPage({ actions = false }) {
-  const { items: watchedItems, loading: historyLoading, error: historyError } = useApiVideoItems();
+  const watchedItems = readSavedVideoItems(watchedAnimeKey);
   const todayItems = watchedItems.slice(0, Math.ceil(watchedItems.length / 2));
   const olderItems = watchedItems.slice(todayItems.length);
 
-  if (historyLoading || historyError) {
-    return <ApiOnlyState title="LĂ¡Â»â€¹ch sĂ¡Â»Â­ xem" error={historyError} />;
-  }
-
   return (
-    <PhonePage title="Lá»‹ch sá»­ xem">
+    <PhonePage title="Lịch sử xem">
       <Box sx={{ height: '100%', bgcolor: bg, position: 'relative' }}>
         <Box sx={{ height: '100%', overflowY: 'auto', scrollbarWidth: 'none', pb: 8 }}>
-          <TopBar title="Lá»‹ch sá»­ xem" />
+          <TopBar title="Lịch sử xem" />
           <Box sx={{ px: 1.3, pt: 1.4 }}>
-            <SearchBox placeholder="TĂ¬m kiáº¿m video Ä‘Ă£ xem..." onClick={() => window.alert('TĂ¬m trong lá»‹ch sá»­ xem')} />
+            <SearchBox placeholder="Tìm kiếm video đã xem..." onClick={() => window.alert('Tìm trong lịch sử xem')} />
             {watchedItems.length > 0 ? (
               <>
                 <Typography sx={{ color: '#bdbdbd', fontSize: 11.3, fontWeight: 800, mt: 1.4, mb: 0.9 }}>HĂ´m nay</Typography>
@@ -876,7 +917,7 @@ export function HistoryPage({ actions = false }) {
                 )}
               </>
             ) : (
-              <EmptyListMessage title="ChÆ°a cĂ³ phim Ä‘Ă£ xem" message="Phim báº¡n xem sáº½ Ä‘Æ°á»£c lÆ°u vĂ o lá»‹ch sá»­ táº¡i Ä‘Ă¢y." />
+              <EmptyListMessage title="Lịch sử xem" message="Phim bạn đã xem ." />
             )}
           </Box>
         </Box>
@@ -885,11 +926,11 @@ export function HistoryPage({ actions = false }) {
             <Box onClick={(event) => event.stopPropagation()} sx={{ position: 'absolute', left: 20, right: 20, bottom: 84, bgcolor: '#151515', borderRadius: 0.8, overflow: 'hidden' }}>
               <Stack onClick={() => window.alert('ÄĂ£ xĂ³a video khá»i lá»‹ch sá»­')} direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.4, height: 38, color: '#fff', cursor: 'pointer' }}>
                 <DeleteOutlineIcon sx={{ fontSize: 17 }} />
-                <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>XĂ³a video Ä‘Ă£ xem</Typography>
+                <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>Xóa video đã xem</Typography>
               </Stack>
               <Stack onClick={() => window.alert('ÄĂ£ má»Ÿ chia sáº» phim')} direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.4, height: 38, color: '#fff', borderTop: `1px solid ${line}`, cursor: 'pointer' }}>
                 <ArticleOutlinedIcon sx={{ fontSize: 17 }} />
-                <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>Chia sáº» phim</Typography>
+                <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>Chia sẻ phim</Typography>
               </Stack>
             </Box>
           </Box>
@@ -899,7 +940,6 @@ export function HistoryPage({ actions = false }) {
     </PhonePage>
   );
 }
-
 export function ChangePasswordPage({ filled = false }) {
   const [values, setValues] = useState({
     current: filled ? '************' : '',
@@ -907,16 +947,29 @@ export function ChangePasswordPage({ filled = false }) {
     confirm: filled ? '************' : ''
   });
   const fields = [
-    ['current', 'Máº­t kháº©u hiá»‡n táº¡i', 'Nháº­p máº­t kháº©u hiá»‡n táº¡i'],
-    ['next', 'Máº­t kháº©u má»›i', 'Nháº­p máº­t kháº©u má»›i'],
-    ['confirm', 'XĂ¡c nháº­n máº­t kháº©u má»›i', 'XĂ¡c nháº­n láº¡i máº­t kháº©u má»›i']
+    ['current', 'Mật khẩu hiện tại', 'Nhập mật khẩu hiện tại'],
+    ['next', 'Mật khẩu mới', 'Nhập mật khẩu mới'],
+    ['confirm', 'Xác nhận mật khẩu mới', 'Nhập lại mật khẩu mới']
   ];
   const canSubmit = values.current && values.next && values.confirm;
+  const submit = () => {
+    if (!canSubmit) {
+      window.alert('Vui lòng nhập đầy đủ thông tin.');
+      return;
+    }
+
+    if (values.next !== values.confirm) {
+      window.alert('Mật khẩu xác nhận không khớp.');
+      return;
+    }
+
+    window.alert('  Mật khẩu đã được thay đổi (giả lập).');
+  };
 
   return (
-    <PhonePage title="Äá»•i Máº­t Kháº©u">
+    <PhonePage title="Đổi mật khẩu">
       <Box sx={{ height: '100%', bgcolor: bg, position: 'relative' }}>
-        <TopBar title="Äá»•i máº­t kháº©u" />
+        <TopBar title="Đổi mật khẩu" />
         <Stack spacing={1.7} sx={{ px: 1.7, pt: 2.2 }}>
           {fields.map(([name, label, placeholder]) => (
             <Box key={name}>
@@ -935,8 +988,8 @@ export function ChangePasswordPage({ filled = false }) {
             </Box>
           ))}
         </Stack>
-        <Button onClick={() => window.alert(canSubmit ? 'ÄĂ£ Ä‘á»•i máº­t kháº©u' : 'Vui lĂ²ng nháº­p Ä‘á»§ thĂ´ng tin')} fullWidth variant="contained" sx={{ position: 'absolute', left: 18, right: 18, bottom: 25, width: 'calc(100% - 36px)', height: 36, bgcolor: canSubmit ? orange : '#ad6d08', boxShadow: 'none', borderRadius: 0.5, fontSize: 11, fontWeight: 800, '&:hover': { bgcolor: canSubmit ? orange : '#ad6d08', boxShadow: 'none' } }}>
-          Thay Ä‘á»•i máº­t kháº©u
+        <Button onClick={submit} fullWidth variant="contained" sx={{ position: 'absolute', left: 18, right: 18, bottom: 25, width: 'calc(100% - 36px)', height: 36, bgcolor: canSubmit ? orange : '#ad6d08', boxShadow: 'none', borderRadius: 0.5, fontSize: 11, fontWeight: 800, '&:hover': { bgcolor: canSubmit ? orange : '#ad6d08', boxShadow: 'none' } }}>
+          Thay đổi mật khẩu
         </Button>
       </Box>
     </PhonePage>
@@ -945,18 +998,18 @@ export function ChangePasswordPage({ filled = false }) {
 
 export function FaqPage() {
   const questions = [
-    'Cáº£nh bĂ¡o giáº£ máº¡o "App xem hoáº¡t hĂ¬nh .V"?',
-    'CĂ¡ch sá»­a Ä‘Ăºng "App xem hoáº¡t hĂ¬nh .V"?',
-    'HÆ°á»›ng dáº«n xem anime',
-    'LĂ m tháº¿ nĂ o Ä‘á»ƒ xem phim khĂ´ng lag',
-    'LĂ m tháº¿ nĂ o Ä‘á»ƒ táº£i phim tá»« app',
-    'LĂ m tháº¿ nĂ o Ä‘á»ƒ xem phim miá»…n phĂ­?'
+    'Cảnh báo giả mạo "App xem hoạt hình .V"?',
+    'Cách sửa lỗi khi không xem được phim?',
+    'Hướng dẫn xem anime',
+    'Làm thế nào để xem phim không lag?',
+    'Làm thế nào để tải phim từ app?',
+    'Làm thế nào để xem phim miễn phí?'
   ];
 
   return (
-    <PhonePage title="CĂ¢u há»i thÆ°á»ng gáº·p">
+    <PhonePage title="Câu hỏi thường gặp">
       <Box sx={{ height: '100%', bgcolor: bg }}>
-        <TopBar title="CĂ¢u há»i thÆ°á»ng gáº·p" />
+        <TopBar title="Câu hỏi thường gặp" />
         <Stack sx={{ pt: 1.2 }}>
           {questions.map((question) => (
             <Stack key={question} onClick={() => window.alert(question)} direction="row" alignItems="center" sx={{ height: 39, px: 1.7, borderBottom: `1px solid ${line}`, cursor: 'pointer' }}>
@@ -972,16 +1025,16 @@ export function FaqPage() {
 
 export function FeedbackPage() {
   const items = [
-    [ChatOutlinedIcon, 'Chat vá»›i "App xem hoáº¡t hĂ¬nh .V"', 'chat'],
-    [DescriptionOutlinedIcon, 'BĂ¡o cĂ¡o lá»—i trang', 'report'],
-    [GppMaybeOutlinedIcon, 'BĂ¡o cĂ¡o hĂ nh vi giáº£ máº¡o', 'fake'],
-    [LightbulbOutlinedIcon, 'Gá»­i gĂ³p Ă½', 'suggest']
+    [ChatOutlinedIcon, 'Chat với HHTQ Anime', 'chat'],
+    [DescriptionOutlinedIcon, 'Báo cáo lỗi trang', 'report'],
+    [GppMaybeOutlinedIcon, 'Báo cáo hành vi giả mạo', 'fake'],
+    [LightbulbOutlinedIcon, 'Gửi góp ý', 'suggest']
   ];
 
   return (
-    <PhonePage title="Pháº£n Ă¡nh Ă½ kiáº¿n">
+    <PhonePage title="Phản ánh ý kiến">
       <Box sx={{ height: '100%', bgcolor: bg }}>
-        <TopBar title="Pháº£n Ă¡nh Ă½ kiáº¿n" />
+        <TopBar title="Phản ánh ý kiến" />
         <FeedbackProfileSummary />
         <Stack sx={{ pt: 1 }}>
           {items.map(([Icon, label, type]) => (
@@ -989,7 +1042,7 @@ export function FeedbackPage() {
               {createElement(Icon, { sx: { color: orange, fontSize: 29, mr: 1.1 } })}
               <Box sx={{ flex: 1 }}>
                 <Typography sx={{ color: '#fff', fontSize: 12, fontWeight: 800 }}>{label}</Typography>
-                <Typography sx={{ color: '#727272', fontSize: 9.5, mt: 0.25 }}>Chia sáº» váº¥n Ä‘á» cho chĂºng tĂ´i Ä‘á»ƒ cáº£i thiá»‡n dá»‹ch vá»¥.</Typography>
+                <Typography sx={{ color: '#727272', fontSize: 9.5, mt: 0.25 }}>Chia sẻ vấn đề để chúng tôi cải thiện dịch vụ      .</Typography>
               </Box>
               <ChevronRightIcon sx={{ color: orange, fontSize: 20 }} />
             </Stack>
@@ -1008,7 +1061,7 @@ export function FeedbackFormPage() {
 
   const submitFeedback = async () => {
     if (!text.trim()) {
-      setMessage('Vui long nhap noi dung phan hoi.');
+      setMessage('Vui lòng nhập nội dung phản hồi.');
       return;
     }
 
@@ -1019,48 +1072,47 @@ export function FeedbackFormPage() {
         content: text.trim()
       });
       setText('');
-      setMessage('Da gui phan hoi.');
+      setMessage('ÄĂ£ gá»­i pháº£n há»“i.');
     } catch (error) {
-      setMessage(error?.message || 'Khong the gui phan hoi.');
+      setMessage(error?.message || 'Không thể gửi phản hồi.');
     }
   };
 
   return (
-    <PhonePage title="Pháº£n Ă¡nh Ă½ kiáº¿n">
+    <PhonePage title="Gửi phản hồi">
       <Box sx={{ height: '100%', bgcolor: bg, position: 'relative' }}>
-        <TopBar title="Pháº£n Ă¡nh Ă½ kiáº¿n" actionLabel="Gá»­i" onAction={submitFeedback} />
+        <TopBar title="Phản ánh ý kiến" actionLabel="Gửi" onAction={submitFeedback} />
         <FeedbackProfileSummary />
         <Box sx={{ px: 1.5, pt: 1.6 }}>
           <TextareaAutosize
             minRows={9}
             maxLength={1000}
             value={text}
-            placeholder="Gá»­i Ná»™i dung táº¡i Ä‘Ă¢y"
+            placeholder="Ghi rõ vấn đề bạn gặp phải hoặc góp ý của bạn để chúng tôi cải thiện dịch vụ tốt hơn. Vui lòng không gửi những nội dung không liên quan hoặc có tính chất xúc phạm."
             onChange={(event) => setText(event.target.value)}
             style={{ width: '100%', resize: 'none', background: 'transparent', color: '#eee', border: 0, outline: 0, fontSize: 12, fontFamily: 'Roboto, Arial, sans-serif' }}
           />
-          {message ? <Typography sx={{ color: message.startsWith('Da') ? orange : '#ff8a80', fontSize: 10.5, fontWeight: 800 }}>{message}</Typography> : null}
+          {message ? <Typography sx={{ color: message.startsWith('ÄĂ£') ? orange : '#ff8a80', fontSize: 10.5, fontWeight: 800 }}>{message}</Typography> : null}
           <Typography align="right" sx={{ color: orange, fontSize: 10, mt: 9 }}>{text.length}/1000</Typography>
-          <Stack onClick={() => window.alert('ÄĂ­nh kĂ¨m áº£nh')} alignItems="center" justifyContent="center" sx={{ width: 72, height: 72, mt: 2, border: '1px dashed #777', color: '#aaa', cursor: 'pointer' }}>
+          <Stack onClick={() => window.alert('Đính kèm ảnh')} alignItems="center" justifyContent="center" sx={{ width: 72, height: 72, mt: 2, border: '1px dashed #777', color: '#aaa', cursor: 'pointer' }}>
             <ImageOutlinedIcon sx={{ fontSize: 24 }} />
-            <Typography sx={{ fontSize: 8, mt: 0.5 }}>ÄÄƒng táº£i hĂ¬nh áº£nh</Typography>
+            <Typography sx={{ fontSize: 8, mt: 0.5 }}>Đăng tải hình ảnh</Typography>
           </Stack>
         </Box>
       </Box>
     </PhonePage>
   );
 }
-
 function VideoActionSheet({ kind, closePath, deletePath, item }) {
   const shareItem = () => {
     const title = item?.[0] || 'Phim';
 
     if (navigator.share) {
-      navigator.share({ title, text: title, url: window.location.origin + closePath }).catch(() => {});
+      navigator.share({ title, text: title, url: window.location.origin + closePath }).catch(() => { });
       return;
     }
 
-    window.alert(`Chia se phim: ${title}`);
+    window.alert(`Chia sáº» phim: ${title}`);
   };
 
   return (
@@ -1068,18 +1120,18 @@ function VideoActionSheet({ kind, closePath, deletePath, item }) {
       <Box onClick={(event) => event.stopPropagation()} sx={{ position: 'absolute', left: 20, right: 20, bottom: 30, bgcolor: '#0f0f0f', borderRadius: 0.8, overflow: 'hidden' }}>
         <Stack onClick={() => go(deletePath)} direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.4, height: 38, color: '#fff', cursor: 'pointer' }}>
           <DeleteOutlineIcon sx={{ fontSize: 17 }} />
-          <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>{kind === 'favorite' ? 'XĂ³a phim Ä‘Ă£ thĂ­ch' : 'XĂ³a phim Ä‘Ă£ theo dĂµi'}</Typography>
+          <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>{kind === 'favorite' ? 'Danh sách phim yêu thích' : 'Xóa phim đã theo dõi'}</Typography>
         </Stack>
         <Stack onClick={shareItem} direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.4, height: 38, color: '#fff', borderTop: `1px solid ${line}`, cursor: 'pointer' }}>
           <ArticleOutlinedIcon sx={{ fontSize: 17 }} />
-          <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>Chia sáº» phim</Typography>
+          <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>Chia sẻ phim</Typography>
         </Stack>
       </Box>
     </Box>
   );
 }
 
-function DeleteConfirmDialog({ title, message, closePath, storageKey, item, confirmText = 'Xoa' }) {
+function DeleteConfirmDialog({ title, message, closePath, storageKey, item, confirmText = 'XĂ³a' }) {
   const confirmDelete = () => {
     removeSavedVideoItem(storageKey, item);
     window.localStorage.removeItem(selectedListItemKey);
@@ -1121,7 +1173,7 @@ function VideoListPage({ title, items, storageKey, active, actionPath, actions =
   return (
     <PhonePage title={title}>
       <Box sx={{ height: '100%', bgcolor: bg, position: 'relative' }}>
-        <Box sx={{ height: '100%', overflowY: 'auto', scrollbarWidth: 'none', pb: 2 }}>
+        <Box sx={{ height: '100%', overflowY: 'auto', scrollbarWidth: 'none', pb: 8 }}>
           <TopBar title={title} />
           {items.length > 0 ? (
             <Stack spacing={1.25} sx={{ px: 1.6, pt: 1.6 }}>
@@ -1130,7 +1182,7 @@ function VideoListPage({ title, items, storageKey, active, actionPath, actions =
               ))}
             </Stack>
           ) : (
-            <EmptyListMessage title={active === 'like' ? 'ChÆ°a cĂ³ phim Ä‘Ă£ thĂ­ch' : 'ChÆ°a cĂ³ phim theo dĂµi'} message={active === 'like' ? 'Nhá»¯ng phim báº¡n thĂ­ch sáº½ xuáº¥t hiá»‡n táº¡i Ä‘Ă¢y.' : 'Nhá»¯ng phim báº¡n theo dĂµi sáº½ xuáº¥t hiá»‡n táº¡i Ä‘Ă¢y.'} />
+            <EmptyListMessage title={active === 'like' ? 'Danh sách phim yêu thích ' : ''} message={active === 'like' ? 'Phim bạn yêu thích sẽ xuất hiện tại đây.' : 'Những phim bạn theo dõi sẽ xuất hiện tại đây.'} />
           )}
         </Box>
         {active && <BottomNav active={active} />}
@@ -1144,10 +1196,9 @@ function VideoListPage({ title, items, storageKey, active, actionPath, actions =
 export function FavoritesPage({ actions = false, deleteDialog = false }) {
   const items = readSavedVideoItems(favoriteAnimeKey);
 
-
   return (
     <VideoListPage
-      title="Phim Ä‘Ă£ thĂ­ch"
+      title="Phim yêu thích"
       items={items}
       storageKey={favoriteAnimeKey}
       active="like"
@@ -1155,8 +1206,8 @@ export function FavoritesPage({ actions = false, deleteDialog = false }) {
       actions={actions}
       deleteDialog={deleteDialog}
       closePath="/favorites"
-      deleteTitle="XĂ³a phim Ä‘Ă£ thĂ­ch"
-      deleteMessage="Báº¡n muá»‘n xĂ³a video nĂ y khá»i danh sĂ¡ch Ä‘Ă£ thĂ­ch?"
+      deleteTitle="Xóa video yêu thích"
+      deleteMessage="Bạn muốn xóa video này khỏi danh sách yêu thích?"
     />
   );
 }
@@ -1164,10 +1215,9 @@ export function FavoritesPage({ actions = false, deleteDialog = false }) {
 export function FollowedPage({ actions = false, deleteDialog = false }) {
   const items = readSavedVideoItems(followedAnimeKey);
 
-
   return (
     <VideoListPage
-      title="Phim Ä‘Ă£ theo dĂµi"
+      title="Phim theo dõi"
       items={items}
       storageKey={followedAnimeKey}
       active="follow"
@@ -1175,8 +1225,8 @@ export function FollowedPage({ actions = false, deleteDialog = false }) {
       actions={actions}
       deleteDialog={deleteDialog}
       closePath="/followed"
-      deleteTitle="XĂ³a video theo dĂµi"
-      deleteMessage="Báº¡n muá»‘n xĂ³a video nĂ y khá»i danh sĂ¡ch theo dĂµi?"
+      deleteTitle="Xóa video theo dõi"
+      deleteMessage="Bạn muốn xóa video này khỏi danh sách theo dõi?"
     />
   );
 }

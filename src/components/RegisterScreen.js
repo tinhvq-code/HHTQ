@@ -127,7 +127,7 @@ function RegisterScreen({ variant = 'empty' }) {
         password: values.password
       });
 
-      setSessionUser(user);
+      setSessionUser(user, { resetUserData: true });
       setMessage('Đăng ký thành công.');
       window.setTimeout(() => {
         window.location.href = '/home';

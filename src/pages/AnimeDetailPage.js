@@ -3,30 +3,35 @@ import { Box, Typography, IconButton, Button, Divider, Chip } from '@mui/materia
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PlayCircleOutlinedIcon from '@mui/icons-material/PlayCircleOutlined';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import FavoriteIcon from '@mui/icons-material/Favorite';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
 import ReplyIcon from '@mui/icons-material/Reply';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { useNavigate } from 'react-router-dom';
 import PageShell from '../components/PageShell.js';
 import PhoneFrame from '../components/PhoneFrame.js';
 import { fetchHomeAnime } from '../services/animeApi.js';
+import { readUserList, writeUserList } from '../services/authSession.js';
 import { fetchYouTubeVideoData } from '../services/youtubeApi.js';
+import { BottomNav } from './AnimeMockPages.js';
 
 const selectedAnimeKey = 'selectedAnimeDetail';
+const watchedAnimeKey = 'watchedAnimeItems';
 const favoriteAnimeKey = 'favoriteAnimeItems';
 const followedAnimeKey = 'followedAnimeItems';
 
 const episodes = [
-  { id: 1, title: 'Táº­p 1', views: '432K lÆ°á»£t xem', img: 'https://placehold.co/120x80/2a2a2a/FFF?text=Tap+1' },
-  { id: 2, title: 'Táº­p 2', views: '321K lÆ°á»£t xem', img: 'https://placehold.co/120x80/2a2a2a/FFF?text=Tap+2' },
-  { id: 3, title: 'Táº­p 3', views: '310K lÆ°á»£t xem', img: 'https://placehold.co/120x80/2a2a2a/FFF?text=Tap+3' },
-  { id: 4, title: 'Táº­p 4', views: '309K lÆ°á»£t xem', img: 'https://placehold.co/120x80/2a2a2a/FFF?text=Tap+4' },
+  { id: 1, title: 'Tập 1', views: '432K lượt xem', img: 'https://placehold.co/120x80/2a2a2a/FFF?text=Tap+1' },
+  { id: 2, title: 'Tập 2', views: '321K lượt xem', img: 'https://placehold.co/120x80/2a2a2a/FFF?text=Tap+2' },
+  { id: 3, title: 'Tập 3', views: '310K lượt xem', img: 'https://placehold.co/120x80/2a2a2a/FFF?text=Tap+3' },
+  { id: 4, title: 'Tập 4', views: '309K lượt xem', img: 'https://placehold.co/120x80/2a2a2a/FFF?text=Tap+4' }
 ];
 
 const fallbackAnime = {
   title: 'Eden',
-  eps: 'Táº­p 1',
-  views: '522.000 lÆ°á»£t xem',
+  eps: 'Tập 1',
+  views: '522.000 lượt xem',
   img: 'https://placehold.co/600x337/333/FFF?text=Anime',
   trailer: null,
   genres: []
@@ -53,7 +58,6 @@ const toRecommendedAnime = (item, index) => ({
 
 const trailerUrl = (trailer) => {
   if (!trailer?.id || trailer.site !== 'youtube') return '';
-
   return `https://www.youtube.com/embed/${trailer.id}`;
 };
 
@@ -66,22 +70,17 @@ const readSelectedAnime = () => {
 };
 
 const readStoredList = (key) => {
-  try {
-    const items = JSON.parse(window.localStorage.getItem(key));
-    return Array.isArray(items) ? items : [];
-  } catch {
-    return [];
-  }
+  return readUserList(key);
 };
 
 const writeStoredList = (key, items) => {
-  window.localStorage.setItem(key, JSON.stringify(items));
+  writeUserList(key, items);
 };
 
 const toStoredVideoItem = (item) => [
   item.title,
-  item.eps || 'Táº­p má»›i',
-  item.views || 'Äang cáº­p nháº­t lÆ°á»£t xem',
+  item.eps || 'Tập mới',
+  item.views || 'Đang cập nhật lượt xem',
   item.img,
   item.trailer || null,
   item.genres || []
@@ -89,6 +88,29 @@ const toStoredVideoItem = (item) => [
 
 const hasStoredAnime = (key, title) => {
   return readStoredList(key).some((item) => item?.[0] === title);
+};
+
+const toggleStoredAnime = (key, anime) => {
+  const items = readStoredList(key);
+  const exists = items.some((item) => item?.[0] === anime.title);
+
+  if (exists) {
+    writeStoredList(
+      key,
+      items.filter((item) => item?.[0] !== anime.title)
+    );
+    return false;
+  }
+
+  writeStoredList(key, [toStoredVideoItem(anime), ...items]);
+  return true;
+};
+
+const rememberWatchedAnime = (anime) => {
+  if (!anime?.title) return;
+
+  const items = readStoredList(watchedAnimeKey).filter((item) => item?.[0] !== anime.title);
+  writeStoredList(watchedAnimeKey, [toStoredVideoItem(anime), ...items].slice(0, 80));
 };
 
 export default function AnimeDetailPage() {
@@ -104,8 +126,8 @@ export default function AnimeDetailPage() {
   const [isFollowed, setIsFollowed] = useState(() => hasStoredAnime(followedAnimeKey, readSelectedAnime().title));
   const [notice, setNotice] = useState('');
   const [comments, setComments] = useState([
-    { id: 1, name: 'HHTQ Fan', text: 'Phim nĂ y hĂ¬nh áº£nh á»•n, chá» thĂªm táº­p má»›i.' },
-    { id: 2, name: 'Anime Lover', text: 'CĂ³ trailer lĂ  tiá»‡n xem trÆ°á»›c hÆ¡n nhiá»u.' }
+    { id: 1, name: 'HHTQ Fan', text: 'Phim này hình ảnh ổn, chờ thêm tập mới.' },
+    { id: 2, name: 'Anime Lover', text: 'Có trailer là tiện xem trước hơn nhiều.' }
   ]);
 
   useEffect(() => {
@@ -147,7 +169,7 @@ export default function AnimeDetailPage() {
         if (!ignore) setYoutubeData(data);
       })
       .catch((error) => {
-        if (!ignore) setYoutubeError(error?.message || 'KhĂ´ng thá»ƒ táº£i dá»¯ liá»‡u YouTube');
+        if (!ignore) setYoutubeError(error?.message || 'Không thể tải dữ liệu YouTube');
       });
 
     return () => {
@@ -168,7 +190,7 @@ export default function AnimeDetailPage() {
     views: anime.views
   }));
   const tags = [anime.title, `${anime.title} Vietsub`, `${anime.title} HD`, anime.eps];
-  const genreText = anime.genres?.length ? anime.genres.join(', ') : 'Äang cáº­p nháº­t';
+  const genreText = anime.genres?.length ? anime.genres.join(', ') : 'Đang cập nhật';
   const activeTrailerUrl = trailerUrl(anime.trailer);
   const resetDetailView = () => {
     setViewMode('trailer');
@@ -182,31 +204,22 @@ export default function AnimeDetailPage() {
     scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const showEpisodes = () => {
+    rememberWatchedAnime(anime);
     setViewMode('episodes');
   };
   const showNotice = (text) => {
     setNotice(text);
     window.setTimeout(() => setNotice(''), 1400);
   };
-  const saveAnimeToList = (key, successText) => {
-    const items = readStoredList(key);
-    const nextItem = toStoredVideoItem(anime);
-    const exists = items.some((item) => item?.[0] === anime.title);
-
-    if (!exists) {
-      writeStoredList(key, [nextItem, ...items]);
-    }
-
-    showNotice(exists ? 'Phim Ä‘Ă£ cĂ³ trong danh sĂ¡ch' : successText);
-    return !exists;
-  };
   const likeAnime = () => {
-    saveAnimeToList(favoriteAnimeKey, 'ÄĂ£ thĂªm vĂ o phim Ä‘Ă£ thĂ­ch');
-    setIsLiked(true);
+    const active = toggleStoredAnime(favoriteAnimeKey, anime);
+    setIsLiked(active);
+    showNotice(active ? 'Đã thêm vào phim đã thích' : 'Đã hủy thích phim');
   };
   const followAnime = () => {
-    saveAnimeToList(followedAnimeKey, 'ÄĂ£ thĂªm vĂ o phim Ä‘Ă£ theo dĂµi');
-    setIsFollowed(true);
+    const active = toggleStoredAnime(followedAnimeKey, anime);
+    setIsFollowed(active);
+    showNotice(active ? 'Đã thêm vào phim đã theo dõi' : 'Đã hủy theo dõi phim');
   };
   const shareAnime = async () => {
     const shareData = {
@@ -218,14 +231,14 @@ export default function AnimeDetailPage() {
     try {
       if (navigator.share) {
         await navigator.share(shareData);
-        showNotice('ÄĂ£ má»Ÿ chia sáº» phim');
+        showNotice('Đã mở chia sẻ phim');
         return;
       }
 
       await navigator.clipboard.writeText(shareData.url);
-      showNotice('ÄĂ£ copy link phim');
+      showNotice('Đã copy link phim');
     } catch {
-      showNotice('ChÆ°a thá»ƒ chia sáº» phim');
+      showNotice('Chưa thể chia sẻ phim');
     }
   };
   const openRecommendedAnime = (item) => {
@@ -238,16 +251,16 @@ export default function AnimeDetailPage() {
     const text = commentText.trim();
     if (!text) return;
 
-    setComments((current) => [{ id: Date.now(), name: 'Báº¡n', text }, ...current]);
+    setComments((current) => [{ id: Date.now(), name: 'Bạn', text }, ...current]);
     setCommentText('');
   };
 
   return (
-    <PageShell title="Chi tiáº¿t Anime">
+    <PageShell title="Chi tiết Anime">
       <PhoneFrame>
-        <Box ref={scrollRef} sx={{ height: '100%', overflowY: 'auto', scrollbarWidth: 'none', backgroundColor: '#101010', color: '#fff', pb: { xs: 4, md: 6 } }}>
-          
-          <Box sx={{ position: 'relative' }}>
+        <Box sx={{ height: '100%', bgcolor: '#101010', position: 'relative', color: '#fff' }}>
+          <Box ref={scrollRef} sx={{ height: '100%', overflowY: 'auto', scrollbarWidth: 'none', pb: { xs: 9, md: 12 } }}>
+            <Box sx={{ position: 'relative', pt: { xs: 0, md: 1.6 }, px: { xs: 0, md: 3 } }}>
             <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, display: 'flex', alignItems: 'center', px: { xs: 1.1, md: 3 }, py: { xs: 0.9, md: 1.4 }, background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)' }}>
               <IconButton size="small" sx={{ color: '#fff', p: 0.55 }} onClick={() => navigate(-1)}>
                 <ArrowBackIcon sx={{ fontSize: { xs: 19, md: 24 } }} />
@@ -255,7 +268,19 @@ export default function AnimeDetailPage() {
               <Typography sx={{ ml: 0.9, fontWeight: 800, fontSize: { xs: 13, md: 18 } }}>Anime</Typography>
             </Box>
 
-            <Box sx={{ width: '100%', aspectRatio: '16/9', position: 'relative', backgroundColor: '#222' }}>
+            <Box
+              sx={{
+                width: '100%',
+                maxWidth: { xs: '100%', md: '50%' },
+                mx: 'auto',
+                aspectRatio: '16/9',
+                position: 'relative',
+                backgroundColor: '#222',
+                borderRadius: { xs: 0, md: 1 },
+                overflow: 'hidden',
+                border: { xs: 0, md: '1px solid #2b2b2b' }
+              }}
+            >
               {activeTrailerUrl && viewMode === 'trailer' ? (
                 <Box
                   component="iframe"
@@ -276,7 +301,7 @@ export default function AnimeDetailPage() {
             </Box>
           </Box>
 
-          <Box sx={{ px: { xs: 1.4, md: 3 }, py: { xs: 1.3, md: 2.4 } }}>
+            <Box sx={{ px: { xs: 1.4, md: 3 }, py: { xs: 1.3, md: 2.4 } }}>
             <Typography sx={{ fontWeight: 800, fontSize: { xs: 15, md: 22 }, mb: 0.35 }}>{anime.title} - {anime.eps}</Typography>
             <Typography sx={{ color: '#aaa', fontSize: { xs: 10.5, md: 14 }, mb: { xs: 1.2, md: 2 } }}>{anime.views}</Typography>
             {notice && (
@@ -284,12 +309,12 @@ export default function AnimeDetailPage() {
                 {notice}
               </Typography>
             )}
-            
+
             <Box sx={{ display: 'flex', gap: { xs: 0.5, md: 1.2 }, mb: { xs: 1.2, md: 2 }, overflowX: 'auto', scrollbarWidth: 'none' }}>
-              <Button onClick={likeAnime} size="small" startIcon={<FavoriteBorderIcon />} sx={{ color: isLiked ? '#ff9800' : '#aaa', textTransform: 'none', minHeight: '28px !important', px: 0.7, fontSize: { xs: 9.5, md: 13 }, whiteSpace: 'nowrap' }}>
+              <Button onClick={likeAnime} size="small" startIcon={isLiked ? <FavoriteIcon /> : <FavoriteBorderIcon />} sx={{ color: isLiked ? '#ff9800' : '#aaa', textTransform: 'none', minHeight: '28px !important', px: 0.7, fontSize: { xs: 9.5, md: 13 }, whiteSpace: 'nowrap' }}>
                 {isLiked ? 'Đã thích' : 'Thích'}
               </Button>
-              <Button onClick={followAnime} size="small" startIcon={<BookmarkBorderIcon />} sx={{ color: isFollowed ? '#ff9800' : '#aaa', textTransform: 'none', minHeight: '28px !important', px: 0.7, fontSize: { xs: 9.5, md: 13 }, whiteSpace: 'nowrap' }}>
+              <Button onClick={followAnime} size="small" startIcon={isFollowed ? <BookmarkIcon /> : <BookmarkBorderIcon />} sx={{ color: isFollowed ? '#ff9800' : '#aaa', textTransform: 'none', minHeight: '28px !important', px: 0.7, fontSize: { xs: 9.5, md: 13 }, whiteSpace: 'nowrap' }}>
                 {isFollowed ? 'Đã theo dõi' : 'Theo dõi'}
               </Button>
               <Button onClick={shareAnime} size="small" startIcon={<ReplyIcon sx={{ transform: 'scaleX(-1)' }} />} sx={{ color: '#aaa', textTransform: 'none', minHeight: '28px !important', px: 0.7, fontSize: { xs: 9.5, md: 13 }, whiteSpace: 'nowrap' }}>
@@ -300,13 +325,13 @@ export default function AnimeDetailPage() {
             <Divider sx={{ borderColor: '#333', mb: { xs: 1.2, md: 2 } }} />
 
             <Box sx={{ display: 'flex', gap: 0.7, mb: { xs: 1.4, md: 2 } }}>
-              <Button 
+              <Button
                 onClick={showTrailer}
                 sx={{ backgroundColor: viewMode === 'trailer' ? '#333' : 'transparent', color: '#fff', textTransform: 'none', minHeight: '30px !important', px: 1.2, py: 0.35, borderRadius: 0.7, border: viewMode === 'trailer' ? '1px solid #ff9800' : '1px solid #333', fontSize: { xs: 10.5, md: 13 } }}
               >
                 Trailer
               </Button>
-              <Button 
+              <Button
                 onClick={showEpisodes}
                 sx={{ backgroundColor: viewMode === 'episodes' ? '#333' : 'transparent', color: '#fff', textTransform: 'none', minHeight: '30px !important', px: 1.2, py: 0.35, borderRadius: 0.7, border: viewMode === 'episodes' ? '1px solid #ff9800' : '1px solid #333', fontSize: { xs: 10.5, md: 13 } }}
               >
@@ -318,12 +343,12 @@ export default function AnimeDetailPage() {
               {viewMode === 'trailer' && (
                 <Box sx={{ mb: { xs: 2, md: 3 } }}>
                   <Typography sx={{ color: activeTrailerUrl ? '#ccc' : '#ffb74d', lineHeight: 1.45, fontSize: { xs: 10.5, md: 14 } }}>
-                    {activeTrailerUrl ? 'Trailer Ä‘ang Ä‘Æ°á»£c phĂ¡t á»Ÿ khung phĂ­a trĂªn.' : 'Phim nĂ y chÆ°a cĂ³ trailer tá»« API, Ä‘ang hiá»ƒn thá»‹ áº£nh Ä‘áº¡i diá»‡n á»Ÿ khung phĂ­a trĂªn.'}
+                    {activeTrailerUrl ? 'Trailer đang phát ở khung phía trên.' : 'Phim này chưa có trailer từ API, đang hiển thị ảnh đại diện ở khung phía trên.'}
                   </Typography>
                   {activeTrailerUrl && (
                     <Box sx={{ mt: 1, p: { xs: 1, md: 1.4 }, bgcolor: '#181818', border: '1px solid #2c2c2c', borderRadius: 0.8 }}>
                       <Typography sx={{ color: '#ff9800', fontSize: { xs: 10, md: 13 }, fontWeight: 800, mb: 0.35 }}>
-                        Dá»¯ liá»‡u YouTube
+                        Dữ liệu YouTube
                       </Typography>
                       {youtubeData ? (
                         <>
@@ -336,7 +361,7 @@ export default function AnimeDetailPage() {
                         </>
                       ) : (
                         <Typography sx={{ color: youtubeError ? '#ffb74d' : '#aaa', fontSize: { xs: 9.5, md: 13 } }}>
-                          {youtubeError || 'Äang táº£i dá»¯ liá»‡u YouTube...'}
+                          {youtubeError || 'Đang tải dữ liệu YouTube...'}
                         </Typography>
                       )}
                     </Box>
@@ -364,20 +389,20 @@ export default function AnimeDetailPage() {
                     ))}
                   </Box>
 
-                  <Typography sx={{ fontWeight: 'bold', fontSize: { xs: 12.5, md: 16 }, mb: 0.8 }}>THĂ”NG TIN PHIM</Typography>
-                  <Typography sx={{ color: '#aaa', fontSize: { xs: 10, md: 13 }, mb: 0.4 }}>Thá»ƒ loáº¡i: {genreText}</Typography>
-                  <Typography sx={{ color: '#aaa', fontSize: { xs: 10, md: 13 }, mb: 0.4 }}>NhĂ³m sub: Phim1080</Typography>
-                  <Typography sx={{ color: '#aaa', fontSize: { xs: 10, md: 13 }, mb: 1.2 }}>Tá»•ng sá»‘ táº­p: {anime.eps}</Typography>
-                  
+                  <Typography sx={{ fontWeight: 'bold', fontSize: { xs: 12.5, md: 16 }, mb: 0.8 }}>THÔNG TIN PHIM</Typography>
+                  <Typography sx={{ color: '#aaa', fontSize: { xs: 10, md: 13 }, mb: 0.4 }}>Thể loại: {genreText}</Typography>
+                  <Typography sx={{ color: '#aaa', fontSize: { xs: 10, md: 13 }, mb: 0.4 }}>Nhóm sub: Phim1080</Typography>
+                  <Typography sx={{ color: '#aaa', fontSize: { xs: 10, md: 13 }, mb: 1.2 }}>Tổng số tập: {anime.eps}</Typography>
+
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
-                    <Typography sx={{ color: '#aaa', mr: 0.5, alignSelf: 'center', fontSize: { xs: 10, md: 13 } }}>Tá»« khĂ³a:</Typography>
+                    <Typography sx={{ color: '#aaa', mr: 0.5, alignSelf: 'center', fontSize: { xs: 10, md: 13 } }}>Từ khóa:</Typography>
                     {tags.map((tag) => (
                       <Chip key={tag} label={tag} size="small" sx={{ backgroundColor: '#222', color: '#aaa', height: { xs: 22, md: 28 }, fontSize: { xs: 9, md: 12 }, borderRadius: 0.8 }} />
                     ))}
                   </Box>
-                  
+
                   <Typography sx={{ color: '#ccc', lineHeight: 1.45, fontSize: { xs: 10.5, md: 14 } }}>
-                    {anime.title} dang nam trong danh sach anime duoc cap nhat tu API. Noi dung, luot xem va hinh anh duoc dong bo theo phim ban chon tu BXH hoac menu Anime.
+                    {anime.title} đang nằm trong danh sách anime được cập nhật từ API. Nội dung, lượt xem và hình ảnh được đồng bộ theo phim bạn chọn từ bảng xếp hạng hoặc menu Anime.
                   </Typography>
                 </Box>
               )}
@@ -387,18 +412,18 @@ export default function AnimeDetailPage() {
 
             <Box sx={{ mb: { xs: 2.4, md: 3.2 } }}>
               <Typography sx={{ fontWeight: 'bold', textTransform: 'uppercase', fontSize: { xs: 12.5, md: 16 }, mb: { xs: 1, md: 1.5 } }}>
-                BĂ¬nh luáº­n
+                BÌNH LUẬN
               </Typography>
               <Box component="form" onSubmit={submitComment} sx={{ display: 'flex', gap: 0.8, mb: { xs: 1.4, md: 2 } }}>
                 <Box
                   component="input"
                   value={commentText}
                   onChange={(event) => setCommentText(event.target.value)}
-                  placeholder="Viáº¿t bĂ¬nh luáº­n..."
+                  placeholder="Viết bình luận..."
                   sx={{ flex: 1, minWidth: 0, height: { xs: 32, md: 42 }, px: 1.1, border: '1px solid #333', borderRadius: 0.7, bgcolor: '#181818', color: '#fff', outline: 0, fontSize: { xs: 10.5, md: 14 }, fontFamily: 'Roboto, Arial, sans-serif' }}
                 />
                 <Button type="submit" variant="contained" sx={{ bgcolor: '#ff9800', color: '#fff', boxShadow: 'none', minHeight: '32px !important', px: 1.4, fontSize: { xs: 10.5, md: 13 }, '&:hover': { bgcolor: '#e68a00', boxShadow: 'none' } }}>
-                  Gá»­i
+                  Gửi
                 </Button>
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1, md: 1.4 } }}>
@@ -417,7 +442,7 @@ export default function AnimeDetailPage() {
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', mb: { xs: 1.1, md: 2 }, '&:hover': { color: '#ff9800' } }}>
-              <Typography sx={{ fontWeight: 'bold', textTransform: 'uppercase', fontSize: { xs: 12.5, md: 16 } }}>HĂ´m nay xem gĂ¬</Typography>
+              <Typography sx={{ fontWeight: 'bold', textTransform: 'uppercase', fontSize: { xs: 12.5, md: 16 } }}>HÔM NAY XEM GÌ</Typography>
               <ChevronRightIcon fontSize="small" />
             </Box>
 
@@ -436,8 +461,9 @@ export default function AnimeDetailPage() {
                 </Box>
               ))}
             </Box>
-
+            </Box>
           </Box>
+          <BottomNav active="home" />
         </Box>
       </PhoneFrame>
     </PageShell>

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Avatar, Box, Divider, IconButton, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
@@ -6,35 +6,10 @@ import ShareIcon from '@mui/icons-material/Share';
 import { useNavigate } from 'react-router-dom';
 import PageShell from '../components/PageShell.js';
 import PhoneFrame from '../components/PhoneFrame.js';
+import { fetchHomeAnime } from '../services/animeApi.js';
+import { BottomNav } from './AnimeMockPages.js';
 
 const selectedNewsKey = 'selectedNewsDetail';
-
-const relatedNews = [
-  {
-    id: 1,
-    time: '16:10 Hôm nay',
-    title: 'One Piece sẽ chính thức lên sóng tập mới trở lại từ 17 tháng 4!',
-    tag: 'Tin Anime',
-    views: '165k lượt xem',
-    img: 'https://placehold.co/300x200/2a2a2a/FFF?text=One+Piece'
-  },
-  {
-    id: 2,
-    time: '18:40 Hôm nay',
-    title: 'Đón chờ podcast Anime Roomy với 4 cô nàng dễ thương!',
-    tag: 'Tin Anime',
-    views: '92k lượt xem',
-    img: 'https://placehold.co/300x200/2a2a2a/FFF?text=Anime+Roomy'
-  },
-  {
-    id: 3,
-    time: '17:23 Hôm qua',
-    title: 'Doraemon movie 41 chính thức khởi chiếu tại Việt Nam với cái tên hoàn toàn mới!',
-    tag: 'Tin Anime',
-    views: '118k lượt xem',
-    img: 'https://placehold.co/300x200/2a2a2a/FFF?text=Doraemon'
-  }
-];
 
 const splitMeta = (meta = '') => {
   const [tag = 'Tin Anime', time = 'Mới cập nhật'] = meta.split('/').map((part) => part.trim());
@@ -49,15 +24,15 @@ const fallbackNews = {
   img: 'https://placehold.co/800x450/2a2a2a/FFF?text=Dragon+Ball+Cover'
 };
 
-const toNewsDetail = (item) => {
-  const meta = splitMeta(item?.meta);
+const toNewsDetail = (item = {}) => {
+  const meta = splitMeta(item.meta || item[1]);
 
   return {
-    title: item?.title || fallbackNews.title,
-    tag: item?.tag || meta.tag,
-    time: item?.time || meta.time,
-    views: item?.views || fallbackNews.views,
-    img: item?.img || fallbackNews.img
+    title: item.title || item[0] || fallbackNews.title,
+    tag: item.tag || meta.tag,
+    time: item.time || meta.time,
+    views: item.views || item[2] || fallbackNews.views,
+    img: item.img || item[3] || fallbackNews.img
   };
 };
 
@@ -73,6 +48,24 @@ export default function NewsDetailPage() {
   const navigate = useNavigate();
   const scrollRef = useRef(null);
   const [news, setNews] = useState(readSelectedNews);
+  const [latestNews, setLatestNews] = useState([]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    fetchHomeAnime()
+      .then((data) => {
+        if (ignore) return;
+        setLatestNews((data.news || []).map(toNewsDetail).filter((item) => item.title !== news.title).slice(0, 6));
+      })
+      .catch(() => {
+        if (!ignore) setLatestNews([]);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [news.title]);
 
   const openRelatedNews = (item) => {
     window.localStorage.setItem(selectedNewsKey, JSON.stringify(item));
@@ -101,81 +94,82 @@ export default function NewsDetailPage() {
   };
 
   return (
-    <PageShell title="Chi tiết Tin Tức">
+    <PageShell title="Chi tiết Tin tức">
       <PhoneFrame>
-        <Box ref={scrollRef} sx={{ height: '100%', overflowY: 'auto', scrollbarWidth: 'none', backgroundColor: '#101010', color: '#fff', pb: 6 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, pt: 3, position: 'sticky', top: 0, bgcolor: '#101010', zIndex: 10 }}>
-            <IconButton size="small" sx={{ color: '#fff' }} onClick={() => navigate(-1)}>
-              <ArrowBackIcon />
-            </IconButton>
-            <Box>
-              <IconButton size="small" sx={{ color: '#fff', mr: 1 }}>
-                <BookmarkBorderIcon />
+        <Box sx={{ height: '100%', bgcolor: '#101010', position: 'relative', color: '#fff' }}>
+          <Box ref={scrollRef} sx={{ height: '100%', overflowY: 'auto', scrollbarWidth: 'none', pb: { xs: 9, md: 12 } }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: { xs: 1, md: 2.2 }, py: { xs: 0.8, md: 1.2 }, position: 'sticky', top: 0, bgcolor: 'rgba(16,16,16,0.96)', zIndex: 10, borderBottom: '1px solid #202020' }}>
+              <IconButton size="small" sx={{ color: '#fff' }} onClick={() => navigate(-1)}>
+                <ArrowBackIcon sx={{ fontSize: { xs: 20, md: 24 } }} />
               </IconButton>
-              <IconButton size="small" sx={{ color: '#fff' }} onClick={shareNews}>
-                <ShareIcon />
-              </IconButton>
-            </Box>
-          </Box>
-
-          <Box sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-              <Box sx={{ backgroundColor: '#ff9800', px: 1, py: 0.3, borderRadius: 1 }}>
-                <Typography sx={{ color: '#fff', fontWeight: 'bold', fontSize: 10 }}>{news.tag}</Typography>
-              </Box>
-              <Typography sx={{ color: '#888', fontSize: 11 }}>{news.time}</Typography>
-            </Box>
-
-            <Typography sx={{ fontWeight: 'bold', lineHeight: 1.4, mb: 2, fontSize: 18 }}>
-              {news.title}
-            </Typography>
-
-            <Box sx={{ width: '100%', aspectRatio: '16/9', borderRadius: 2, overflow: 'hidden', mb: 3 }}>
-              <img src={news.img} alt={news.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            </Box>
-
-            <Typography sx={{ color: '#ccc', lineHeight: 1.6, mb: 2, fontSize: 13 }}>
-              {news.title} là tin mới được lấy từ danh sách tin anime trên trang chủ. Nội dung được đồng bộ theo tin bạn vừa chọn.
-            </Typography>
-
-            <Typography sx={{ color: '#ccc', lineHeight: 1.6, mb: 3, fontSize: 13 }}>
-              Lượt quan tâm: {news.views}. Các thông tin chi tiết hơn có thể được cập nhật thêm khi API tin tức riêng sẵn sàng.
-            </Typography>
-
-            <Divider sx={{ borderColor: '#333', mb: 3 }} />
-
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4, backgroundColor: '#222', p: 1.5, borderRadius: 2 }}>
-              <Avatar src="https://i.pravatar.cc/150?img=11" sx={{ width: 40, height: 40 }} />
               <Box>
-                <Typography sx={{ fontWeight: 'bold', fontSize: 13 }}>Phóng viên Wibu</Typography>
-                <Typography sx={{ color: '#888', fontSize: 11 }}>Chuyên gia săn tin Anime</Typography>
+                <IconButton size="small" sx={{ color: '#fff', mr: 0.6 }}>
+                  <BookmarkBorderIcon sx={{ fontSize: { xs: 19, md: 23 } }} />
+                </IconButton>
+                <IconButton size="small" sx={{ color: '#fff' }} onClick={shareNews}>
+                  <ShareIcon sx={{ fontSize: { xs: 19, md: 23 } }} />
+                </IconButton>
               </Box>
             </Box>
 
-            <Typography sx={{ fontWeight: 'bold', textTransform: 'uppercase', mb: 2, fontSize: 14 }}>
-              Tin mới nhất
-            </Typography>
+            <Box sx={{ px: { xs: 1.2, md: 2.5 }, pt: { xs: 1.2, md: 2 }, pb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <Box sx={{ backgroundColor: '#ff9800', px: 0.8, py: 0.2, borderRadius: 0.5 }}>
+                  <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: { xs: 9, md: 11 } }}>{news.tag}</Typography>
+                </Box>
+                <Typography sx={{ color: '#888', fontSize: { xs: 9.5, md: 12 } }}>{news.time}</Typography>
+              </Box>
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {relatedNews.map((item) => (
-                <Box key={item.id} sx={{ display: 'flex', gap: 1.5, cursor: 'pointer', '&:hover': { opacity: 0.8 } }} onClick={() => openRelatedNews(item)}>
-                  <Box sx={{ width: 120, flexShrink: 0, borderRadius: 1.5, overflow: 'hidden', aspectRatio: '16/9' }}>
-                    <img src={item.img} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </Box>
+              <Typography sx={{ fontWeight: 900, lineHeight: 1.28, mb: 1.2, fontSize: { xs: 15, md: 21 } }}>
+                {news.title}
+              </Typography>
 
-                  <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', flex: 1 }}>
-                    <Typography sx={{ color: '#ff9800', fontSize: 10, mb: 0.5 }}>{item.time}</Typography>
-                    <Typography sx={{ fontWeight: 'bold', lineHeight: 1.3, mb: 1, fontSize: 12, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                      {item.title}
-                    </Typography>
-                    <Box sx={{ alignSelf: 'flex-start', backgroundColor: '#222', px: 1, py: 0.2, borderRadius: 1 }}>
-                      <Typography sx={{ color: '#aaa', fontSize: 9 }}>{item.tag}</Typography>
+              <Box sx={{ width: '100%', maxWidth: { xs: '100%', md: '58%' }, mx: 'auto', aspectRatio: '16/9', borderRadius: 1, overflow: 'hidden', mb: { xs: 1.4, md: 2 }, border: '1px solid #2a2a2a' }}>
+                <img src={news.img} alt={news.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </Box>
+
+              <Typography sx={{ color: '#d0d0d0', lineHeight: 1.55, mb: 1.1, fontSize: { xs: 11, md: 14 } }}>
+                {news.title} là tin mới được đồng bộ từ danh sách tin anime. Nội dung hiển thị theo tin bạn vừa chọn và sẽ cập nhật khi nguồn API có dữ liệu mới.
+              </Typography>
+
+              <Typography sx={{ color: '#b8b8b8', lineHeight: 1.5, mb: 2, fontSize: { xs: 10.5, md: 13 } }}>
+                Lượt quan tâm: {news.views}. Các chi tiết bổ sung có thể được mở rộng khi API tin tức riêng sẵn sàng.
+              </Typography>
+
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, mb: 2.2, backgroundColor: '#1d1d1d', p: { xs: 1, md: 1.2 }, borderRadius: 1 }}>
+                <Avatar src="https://i.pravatar.cc/150?img=11" sx={{ width: { xs: 32, md: 40 }, height: { xs: 32, md: 40 } }} />
+                <Box>
+                  <Typography sx={{ fontWeight: 800, fontSize: { xs: 11.5, md: 14 } }}>Phóng viên Wibu</Typography>
+                  <Typography sx={{ color: '#888', fontSize: { xs: 9.5, md: 12 } }}>Chuyên gia săn tin Anime</Typography>
+                </Box>
+              </Box>
+
+              <Divider sx={{ borderColor: '#303030', mb: 1.8 }} />
+
+              <Typography sx={{ fontWeight: 900, textTransform: 'uppercase', mb: 1.2, fontSize: { xs: 12.5, md: 15 } }}>
+                Tin mới nhất
+              </Typography>
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1, md: 1.25 } }}>
+                {latestNews.map((item) => (
+                  <Box key={`${item.title}-${item.time}`} sx={{ display: 'flex', gap: { xs: 1, md: 1.4 }, cursor: 'pointer', '&:hover': { opacity: 0.82 } }} onClick={() => openRelatedNews(item)}>
+                    <Box sx={{ width: { xs: 82, md: 118 }, flexShrink: 0, borderRadius: 0.8, overflow: 'hidden', aspectRatio: '16/9', bgcolor: '#222' }}>
+                      <img src={item.img} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </Box>
+
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Typography sx={{ color: '#ff9800', fontSize: { xs: 9, md: 11 }, mb: 0.25, fontWeight: 800 }}>{item.time}</Typography>
+                      <Typography sx={{ fontWeight: 800, lineHeight: 1.28, mb: 0.45, fontSize: { xs: 10.5, md: 13.5 }, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {item.title}
+                      </Typography>
+                      <Typography sx={{ color: '#9a9a9a', fontSize: { xs: 9, md: 11 } }}>{item.tag}</Typography>
                     </Box>
                   </Box>
-                </Box>
-              ))}
+                ))}
+              </Box>
             </Box>
           </Box>
+          <BottomNav active="home" />
         </Box>
       </PhoneFrame>
     </PageShell>

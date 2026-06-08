@@ -15,6 +15,10 @@ import PhoneFrame from '../components/PhoneFrame.js';
 import { fetchHomeAnime } from '../services/animeApi.js';
 import { getSessionUser } from '../services/authSession.js';
 
+const selectedAnimeKey = 'selectedAnimeDetail';
+const selectedMangaKey = 'selectedMangaDetail';
+const selectedNewsKey = 'selectedNewsDetail';
+
 const assetPosters = [
   '/assets/anime-01.jpg',
   '/assets/anime-02.jpg',
@@ -158,6 +162,22 @@ const STATIC_MANGA = [
   ['Tiên Vương Quy Lai', '/assets/tải xuống (7).jpg']
 ];
 
+const addAnimeMeta = (items) => items.map((item) => [...item, null, []]);
+
+const fallbackHomeData = {
+  comingSoon: STATIC_COMING_SOON,
+  latestAnime: addAnimeMeta(STATIC_LATEST_ANIME),
+  ranking: addAnimeMeta(STATIC_RANKING),
+  news: STATIC_NEWS,
+  manga: STATIC_MANGA,
+  mangaRanking: STATIC_MANGA.slice(0, 12).map(([title, img], index) => [
+    title,
+    `Chap ${String(index + 1).padStart(2, '0')}`,
+    `${Math.max(35, 110 - index * 6)}k lượt xem`,
+    img
+  ])
+};
+
 function Header({ onNotice }) {
   const [backgroundMode, setBackgroundMode] = useState('dark');
   const [openBackgroundMenu, setOpenBackgroundMenu] = useState(false);
@@ -246,7 +266,7 @@ function PosterTile({ item, compact = false, featured = false, onSelect }) {
 
   return (
     <Box
-      onClick={() => onSelect(title)}
+      onClick={() => onSelect(item)}
       sx={{
         minWidth: 0,
         cursor: 'pointer',
@@ -378,8 +398,9 @@ function MenuPage() {
       })
       .catch((error) => {
         if (!ignore) {
-          setHomeData(null);
-          setApiError(error?.message || 'Không thể tải dữ liệu API');
+          console.warn('Home API failed, using fallback data:', error);
+          setHomeData(fallbackHomeData);
+          setApiError('');
         }
       });
 
@@ -393,8 +414,29 @@ function MenuPage() {
     window.setTimeout(() => setToast(''), 1400);
   };
 
-  const openAnime = (title) => {
-    notify(`Đang mở ${title}`);
+  const openAnime = (item) => {
+    const [title, second, third, fourth, trailer] = item;
+    const isCompactAnime = !fourth;
+    window.localStorage.setItem(selectedAnimeKey, JSON.stringify({
+      title,
+      views: isCompactAnime ? 'Đang cập nhật lượt xem' : second,
+      eps: isCompactAnime ? 'Sắp chiếu' : third,
+      img: isCompactAnime ? second : fourth,
+      trailer: trailer || null
+    }));
+    go('/anime-detail');
+  };
+
+  const openManga = (item) => {
+    const [title, img] = item;
+    window.localStorage.setItem(selectedMangaKey, JSON.stringify({ title, img, chap: 'Chap 01', views: 'Đang cập nhật lượt đọc' }));
+    go('/manga-detail');
+  };
+
+  const openNews = (item) => {
+    const [title, meta, views, img] = item;
+    window.localStorage.setItem(selectedNewsKey, JSON.stringify({ title, meta, views, img }));
+    go('/news-detail');
   };
 
   if (!homeData) {
@@ -470,7 +512,7 @@ function MenuPage() {
             <SectionTitle>BXH</SectionTitle>
             <Stack direction="row" spacing={{ xs: 1, md: 2 }} sx={{ overflowX: 'auto', pb: 0.5, scrollbarWidth: 'none' }}>
               {homeData.ranking.map((item, index) => (
-                <Box key={`${item[0]}-${item[3]}`} onClick={() => openAnime(item[0])} sx={{ minWidth: { xs: 124, md: 216 }, cursor: 'pointer', perspective: 900 }}>
+                <Box key={`${item[0]}-${item[3]}`} onClick={() => openAnime(item)} sx={{ minWidth: { xs: 124, md: 216 }, cursor: 'pointer', perspective: 900 }}>
                   <Typography sx={{ color: '#f3f3f3', fontSize: { xs: 11, md: 15 }, fontWeight: 800 }}>#Top {index + 1}</Typography>
                   <Box sx={{ height: { xs: 72, md: 122 }, mt: 0.5, borderRadius: 1.2, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.16)', bgcolor: '#181818', boxShadow: '0 12px 24px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.12)', transition: 'transform 220ms ease, box-shadow 220ms ease', '&:hover': { transform: 'translateY(-4px) rotateX(3deg) scale(1.025)', boxShadow: '0 18px 32px rgba(0,0,0,0.46)' } }}>
                     <Box component="img" src={poster(item[3], 520, 320)} alt={item[0]} loading="lazy" sx={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover', filter: 'contrast(1.1) saturate(1.14) brightness(1.03)' }} />
@@ -486,7 +528,7 @@ function MenuPage() {
             <SectionTitle>Tin anime</SectionTitle>
             <Stack spacing={{ xs: 1.2, md: 2 }}>
               {homeData.news.map((item) => (
-                <Stack key={`${item[0]}-${item[3]}`} direction="row" spacing={{ xs: 1.1, md: 2 }} onClick={() => notify(`Đang mở tin: ${item[0]}`)} sx={{ cursor: 'pointer' }}>
+                <Stack key={`${item[0]}-${item[3]}`} direction="row" spacing={{ xs: 1.1, md: 2 }} onClick={() => openNews(item)} sx={{ cursor: 'pointer' }}>
                   <Box sx={{ width: { xs: 84, md: 160 }, height: { xs: 56, md: 100 }, flexShrink: 0, borderRadius: 1.2, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.16)', bgcolor: '#181818', boxShadow: '0 12px 24px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12)' }}>
                     <Box component="img" src={poster(item[3], 420, 260)} alt={item[0]} loading="lazy" sx={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover', filter: 'contrast(1.1) saturate(1.14) brightness(1.03)' }} />
                   </Box>
@@ -505,7 +547,7 @@ function MenuPage() {
             <SectionTitle>Truyện tranh</SectionTitle>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' }, gap: { xs: '14px 10px', md: '24px 18px' } }}>
               {homeData.manga.map((item) => (
-                <PosterTile key={`${item[0]}-${item[1]}`} item={item} compact onSelect={openAnime} />
+                <PosterTile key={`${item[0]}-${item[1]}`} item={item} compact onSelect={openManga} />
               ))}
             </Box>
             <ShowMore />

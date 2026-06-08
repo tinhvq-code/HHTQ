@@ -1,4 +1,3 @@
-import React from 'react';
 import { Box, Typography, IconButton, Divider, Avatar } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ShareIcon from '@mui/icons-material/Share';
@@ -13,8 +12,41 @@ const relatedNews = [
   { id: 3, time: '17:23 Hôm qua', title: 'Doraemon movie 41 chính thức khởi chiếu tại Việt Nam với cái tên hoàn toàn mới!', tag: 'Tin Anime', img: 'https://placehold.co/300x200/2a2a2a/FFF?text=Doraemon' },
 ];
 
+const selectedNewsKey = 'selectedNewsDetail';
+
+const splitMeta = (meta = '') => {
+  const [tag = 'Tin Anime', time = 'Mới cập nhật'] = meta.split('/').map((part) => part.trim());
+  return { tag, time };
+};
+
+const fallbackNews = {
+  title: 'Sau 30 năm, ca khúc “CHA-LA HEAD CHA-LA” của Dragon Ball Z được tái hiện trở lại!',
+  tag: 'Tin Anime',
+  time: '8:10 Hôm nay',
+  views: 'Đang cập nhật',
+  img: 'https://placehold.co/800x450/2a2a2a/FFF?text=Dragon+Ball+Cover'
+};
+
+const readSelectedNews = () => {
+  try {
+    const item = JSON.parse(window.localStorage.getItem(selectedNewsKey));
+    const meta = splitMeta(item?.meta);
+
+    return {
+      title: item?.title || fallbackNews.title,
+      tag: item?.tag || meta.tag,
+      time: item?.time || meta.time,
+      views: item?.views || fallbackNews.views,
+      img: item?.img || fallbackNews.img
+    };
+  } catch {
+    return fallbackNews;
+  }
+};
+
 export default function NewsDetailPage() {
   const navigate = useNavigate();
+  const news = readSelectedNews();
 
   return (
     <PageShell title="Chi tiết Tin Tức">
@@ -34,25 +66,25 @@ export default function NewsDetailPage() {
           <Box sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
               <Box sx={{ backgroundColor: '#ff9800', px: 1, py: 0.3, borderRadius: 1 }}>
-                <Typography sx={{ color: '#fff', fontWeight: 'bold', fontSize: 10 }}>Tin Anime</Typography>
+                <Typography sx={{ color: '#fff', fontWeight: 'bold', fontSize: 10 }}>{news.tag}</Typography>
               </Box>
-              <Typography sx={{ color: '#888', fontSize: 11 }}>8:10 Hôm nay</Typography>
+              <Typography sx={{ color: '#888', fontSize: 11 }}>{news.time}</Typography>
             </Box>
 
             <Typography sx={{ fontWeight: 'bold', lineHeight: 1.4, mb: 2, fontSize: 18 }}>
-              Sau 30 năm, ca khúc “CHA-LA HEAD CHA-LA” của Dragon Ball Z được tái hiện trở lại!
+              {news.title}
             </Typography>
 
             <Box sx={{ width: '100%', aspectRatio: '16/9', borderRadius: 2, overflow: 'hidden', mb: 3 }}>
-              <img src="https://placehold.co/800x450/2a2a2a/FFF?text=Dragon+Ball+Cover" alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={news.img} alt={news.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </Box>
 
             <Typography sx={{ color: '#ccc', lineHeight: 1.6, mb: 2, fontSize: 13 }}>
-              Người hâm mộ bộ anime huyền thoại Dragon Ball Z vừa đón nhận một tin không thể vui hơn. Bài hát mở đầu mang tính biểu tượng "CHA-LA HEAD CHA-LA" vừa được thu âm lại với chất lượng hoàn toàn mới mẻ.
+              {news.title} là tin mới được lấy từ danh sách tin anime trên trang chủ. Nội dung này đang được đồng bộ theo tin bạn vừa chọn.
             </Typography>
             
             <Typography sx={{ color: '#ccc', lineHeight: 1.6, mb: 3, fontSize: 13 }}>
-              Sự kiện này đánh dấu kỷ niệm 30 năm ra mắt thương hiệu. Rất nhiều khán giả đã bày tỏ sự xúc động mạnh mẽ khi giai điệu tuổi thơ một lần nữa vang lên trên các nền tảng phát trực tuyến.
+              Lượt quan tâm: {news.views}. Các thông tin chi tiết hơn có thể được cập nhật thêm khi API tin tức riêng sẵn sàng.
             </Typography>
 
             <Divider sx={{ borderColor: '#333', mb: 3 }} />

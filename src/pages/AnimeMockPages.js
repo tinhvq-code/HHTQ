@@ -73,6 +73,62 @@ const go = (path) => {
   window.location.href = path;
 };
 
+const selectedAnimeKey = 'selectedAnimeDetail';
+const favoriteAnimeKey = 'favoriteAnimeItems';
+const followedAnimeKey = 'followedAnimeItems';
+
+const readSavedVideoItems = (key) => {
+  try {
+    const items = JSON.parse(window.localStorage.getItem(key));
+    return Array.isArray(items) ? items : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeSavedVideoItems = (key, items) => {
+  window.localStorage.setItem(key, JSON.stringify(items));
+};
+
+const videoItemToDetail = (item) => ({
+  title: item?.[0] || '',
+  eps: item?.[1] || 'Tap moi',
+  views: item?.[2] || 'Dang cap nhat luot xem',
+  img: item?.[3] || '',
+  trailer: item?.[4] || null,
+  genres: item?.[5] || []
+});
+
+const openAnimeDetailFromVideo = (item) => {
+  window.localStorage.setItem(selectedAnimeKey, JSON.stringify(videoItemToDetail(item)));
+  go('/anime-detail');
+};
+
+const selectedListItemKey = 'selectedVideoListItem';
+
+const rememberSelectedVideoItem = (item) => {
+  window.localStorage.setItem(selectedListItemKey, JSON.stringify(item));
+};
+
+const readSelectedVideoItem = () => {
+  try {
+    const item = JSON.parse(window.localStorage.getItem(selectedListItemKey));
+    return Array.isArray(item) ? item : null;
+  } catch {
+    return null;
+  }
+};
+
+const removeSavedVideoItem = (key, item) => {
+  const title = item?.[0];
+  if (!title) return;
+
+  writeSavedVideoItems(
+    key,
+    readSavedVideoItems(key).filter((current) => current?.[0] !== title)
+  );
+};
+
 const getCurrentUser = () => {
   return getSessionUser();
 };
@@ -92,29 +148,29 @@ const getProfileInfo = () => {
 };
 
 const languageOptions = [
-  { code: 'vi', flag: 'VN', label: 'Tiếng Việt' },
+  { code: 'vi', flag: 'VN', label: 'Ti\u1ebfng Vi\u1ec7t' },
   { code: 'en', flag: 'EN', label: 'English' },
-  { code: 'th', flag: 'TH', label: 'ภาษาไทย' }
+  { code: 'th', flag: 'TH', label: '\u0e20\u0e32\u0e29\u0e32\u0e44\u0e17\u0e22' }
 ];
 
 const languageText = {
   vi: {
-    profileTitle: 'Cá nhân',
-    guestProfileTitle: 'Cá nhân chưa đăng nhập',
-    settings: 'Cài đặt',
-    loginRegister: 'Đăng nhập / Đăng ký',
-    edit: 'Chỉnh sửa',
-    logout: 'Đăng xuất',
-    notUpdated: 'Chưa cập nhật thông tin',
-    emailEmpty: 'Chưa cập nhật email',
-    history: 'Lịch sử xem',
-    changePassword: 'Đổi mật khẩu',
-    language: 'Ngôn ngữ',
-    faq: 'Câu hỏi thường gặp',
-    feedback: 'Phản ánh ý kiến',
-    languageTitle: 'Thay đổi ngôn ngữ',
-    close: 'Đóng',
-    confirm: 'Xác nhận'
+    profileTitle: 'C\u00e1 nh\u00e2n',
+    guestProfileTitle: 'C\u00e1 nh\u00e2n ch\u01b0a \u0111\u0103ng nh\u1eadp',
+    settings: 'C\u00e0i \u0111\u1eb7t',
+    loginRegister: '\u0110\u0103ng nh\u1eadp / \u0110\u0103ng k\u00fd',
+    edit: 'Ch\u1ec9nh s\u1eeda',
+    logout: '\u0110\u0103ng xu\u1ea5t',
+    notUpdated: 'Ch\u01b0a c\u1eadp nh\u1eadt th\u00f4ng tin',
+    emailEmpty: 'Ch\u01b0a c\u1eadp nh\u1eadt email',
+    history: 'L\u1ecbch s\u1eed xem',
+    changePassword: '\u0110\u1ed5i m\u1eadt kh\u1ea9u',
+    language: 'Ng\u00f4n ng\u1eef',
+    faq: 'C\u00e2u h\u1ecfi th\u01b0\u1eddng g\u1eb7p',
+    feedback: 'Ph\u1ea3n \u00e1nh \u00fd ki\u1ebfn',
+    languageTitle: 'Thay \u0111\u1ed5i ng\u00f4n ng\u1eef',
+    close: '\u0110\u00f3ng',
+    confirm: 'X\u00e1c nh\u1eadn'
   },
   en: {
     profileTitle: 'Profile',
@@ -135,25 +191,24 @@ const languageText = {
     confirm: 'Confirm'
   },
   th: {
-    profileTitle: 'โปรไฟล์',
-    guestProfileTitle: 'โปรไฟล์ผู้เยี่ยมชม',
-    settings: 'การตั้งค่า',
-    loginRegister: 'เข้าสู่ระบบ / สมัครสมาชิก',
-    edit: 'แก้ไข',
-    logout: 'ออกจากระบบ',
-    notUpdated: 'ยังไม่ได้อัปเดตข้อมูล',
-    emailEmpty: 'ยังไม่ได้อัปเดตอีเมล',
-    history: 'ประวัติการรับชม',
-    changePassword: 'เปลี่ยนรหัสผ่าน',
-    language: 'ภาษา',
-    faq: 'คำถามที่พบบ่อย',
-    feedback: 'ข้อเสนอแนะ',
-    languageTitle: 'เปลี่ยนภาษา',
-    close: 'ปิด',
-    confirm: 'ยืนยัน'
+    profileTitle: '\u0e42\u0e1b\u0e23\u0e44\u0e1f\u0e25\u0e4c',
+    guestProfileTitle: '\u0e42\u0e1b\u0e23\u0e44\u0e1f\u0e25\u0e4c\u0e1c\u0e39\u0e49\u0e40\u0e22\u0e35\u0e48\u0e22\u0e21\u0e0a\u0e21',
+    settings: '\u0e01\u0e32\u0e23\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32',
+    loginRegister: '\u0e40\u0e02\u0e49\u0e32\u0e2a\u0e39\u0e48\u0e23\u0e30\u0e1a\u0e1a / \u0e2a\u0e21\u0e31\u0e04\u0e23\u0e2a\u0e21\u0e32\u0e0a\u0e34\u0e01',
+    edit: '\u0e41\u0e01\u0e49\u0e44\u0e02',
+    logout: '\u0e2d\u0e2d\u0e01\u0e08\u0e32\u0e01\u0e23\u0e30\u0e1a\u0e1a',
+    notUpdated: '\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e2d\u0e31\u0e1b\u0e40\u0e14\u0e15\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25',
+    emailEmpty: '\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e2d\u0e31\u0e1b\u0e40\u0e14\u0e15\u0e2d\u0e35\u0e40\u0e21\u0e25',
+    history: '\u0e1b\u0e23\u0e30\u0e27\u0e31\u0e15\u0e34\u0e01\u0e32\u0e23\u0e23\u0e31\u0e1a\u0e0a\u0e21',
+    changePassword: '\u0e40\u0e1b\u0e25\u0e35\u0e48\u0e22\u0e19\u0e23\u0e2b\u0e31\u0e2a\u0e1c\u0e48\u0e32\u0e19',
+    language: '\u0e20\u0e32\u0e29\u0e32',
+    faq: '\u0e04\u0e33\u0e16\u0e32\u0e21\u0e17\u0e35\u0e48\u0e1e\u0e1a\u0e1a\u0e48\u0e2d\u0e22',
+    feedback: '\u0e02\u0e49\u0e2d\u0e40\u0e2a\u0e19\u0e2d\u0e41\u0e19\u0e30',
+    languageTitle: '\u0e40\u0e1b\u0e25\u0e35\u0e48\u0e22\u0e19\u0e20\u0e32\u0e29\u0e32',
+    close: '\u0e1b\u0e34\u0e14',
+    confirm: '\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19'
   }
 };
-
 const getStoredLanguage = () => {
   const code = window.localStorage.getItem('appLanguage') || 'vi';
 
@@ -163,42 +218,23 @@ const getStoredLanguage = () => {
 const getLanguageCopy = () => languageText[getStoredLanguage()] || languageText.vi;
 
 const STATIC_RANKING_ITEMS = [
-  ['Tuyết Ưng Lĩnh Chủ', 'Tập 1', '432k lượt xem', '/assets/anime-01.jpg'],
-  ['Vạn Cổ Kiếm Tôn', 'Tập 18', '756k lượt xem', '/assets/anime-06.jpg'],
-  ['Thiên Đạo Huyền Sư', 'Tập 12', '612k lượt xem', '/assets/anime-07.jpg'],
-  ['Long Tộc Trỗi Dậy', 'Tập mới', '723k lượt xem', '/assets/anime-08.jpg'],
-  ['Ma Vực Phong Thần', 'Tập 09', '488k lượt xem', '/assets/anime-09.jpg'],
-  ['Hỏa Phụng Liên Thành', 'Tập 22', '417k lượt xem', '/assets/anime-10.jpg'],
-  ['Tinh Hà Chiến Kỷ', 'Tập 15', '365k lượt xem', '/assets/anime-11.jpg'],
-  ['Thương Khung Bí Sử', 'Tập 06', '289k lượt xem', '/assets/anime-12.jpg'],
-  ['Ngự Kiếm Sơn Hà', 'Tập 30', '842k lượt xem', '/assets/anime-13.jpg']
+  ['Tuy\u1ebft \u01afng L\u0129nh Ch\u1ee7', 'T\u1eadp 1', '432k l\u01b0\u1ee3t xem', '/assets/anime-01.jpg'],
+  ['V\u1ea1n C\u1ed5 Ki\u1ebfm T\u00f4n', 'T\u1eadp 18', '756k l\u01b0\u1ee3t xem', '/assets/anime-06.jpg'],
+  ['Thi\u00ean \u0110\u1ea1o Huy\u1ec1n S\u01b0', 'T\u1eadp 12', '612k l\u01b0\u1ee3t xem', '/assets/anime-07.jpg'],
+  ['Long T\u1ed9c Tr\u1ed7i D\u1eady', 'T\u1eadp m\u1edbi', '723k l\u01b0\u1ee3t xem', '/assets/anime-08.jpg'],
+  ['Ma V\u1ef1c Phong Th\u1ea7n', 'T\u1eadp 09', '488k l\u01b0\u1ee3t xem', '/assets/anime-09.jpg'],
+  ['H\u1ecfa Ph\u1ee5ng Li\u00ean Th\u00e0nh', 'T\u1eadp 22', '417k l\u01b0\u1ee3t xem', '/assets/anime-10.jpg'],
+  ['Tinh H\u00e0 Chi\u1ebfn K\u1ef7', 'T\u1eadp 15', '365k l\u01b0\u1ee3t xem', '/assets/anime-11.jpg'],
+  ['Th\u01b0\u01a1ng Khung B\u00ed S\u1eed', 'T\u1eadp 06', '289k l\u01b0\u1ee3t xem', '/assets/anime-12.jpg'],
+  ['Ng\u1ef1 Ki\u1ebfm S\u01a1n H\u00e0', 'T\u1eadp 30', '842k l\u01b0\u1ee3t xem', '/assets/anime-13.jpg']
 ];
 
-const STATIC_HISTORY_TODAY = [
-  ['Tuyết Ưng Lĩnh Chủ', 'Tập 1', '432k lượt xem', '/assets/anime-01.jpg'],
-  ['Vạn Cổ Kiếm Tôn', 'Tập 18', '756k lượt xem', '/assets/anime-06.jpg'],
-  ['Long Tộc Trỗi Dậy', 'Tập mới', '723k lượt xem', '/assets/anime-08.jpg'],
-  ['Tinh Hà Chiến Kỷ', 'Tập 15', '365k lượt xem', '/assets/anime-11.jpg']
-];
-
-const STATIC_HISTORY_SECOND = [
-  ['Thiên Đạo Huyền Sư', 'Tập 12', '612k lượt xem', '/assets/anime-07.jpg'],
-  ['Ma Vực Phong Thần', 'Tập 09', '488k lượt xem', '/assets/anime-09.jpg'],
-  ['Hỏa Phụng Liên Thành', 'Tập 22', '417k lượt xem', '/assets/anime-10.jpg'],
-  ['Ngự Kiếm Sơn Hà', 'Tập 30', '842k lượt xem', '/assets/anime-13.jpg']
-];
-
-const STATIC_FAVORITE_ITEMS = [
-  ['Tuyết Ưng Lĩnh Chủ', 'Tập 1', '432k lượt xem', '/assets/anime-01.jpg'],
-  ['Vạn Cổ Kiếm Tôn', 'Tập 18', '756k lượt xem', '/assets/anime-06.jpg'],
-  ['Long Tộc Trỗi Dậy', 'Tập mới', '723k lượt xem', '/assets/anime-08.jpg'],
-  ['Ma Vực Phong Thần', 'Tập 09', '488k lượt xem', '/assets/anime-09.jpg'],
-  ['Ngự Kiếm Sơn Hà', 'Tập 30', '842k lượt xem', '/assets/anime-13.jpg']
-];
-
+const STATIC_HISTORY_TODAY = STATIC_RANKING_ITEMS.slice(0, 4);
+const STATIC_HISTORY_SECOND = STATIC_RANKING_ITEMS.slice(4, 8);
+const STATIC_FAVORITE_ITEMS = STATIC_RANKING_ITEMS.slice(0, 5);
 const STATIC_FOLLOWED_ITEMS = STATIC_FAVORITE_ITEMS;
 
-function EmptyListMessage({ title = 'Chưa có dữ liệu', message = 'Nội dung mới sẽ xuất hiện tại đây.' }) {
+function EmptyListMessage({ title = 'Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u', message = 'N\u1ed9i dung m\u1edbi s\u1ebd xu\u1ea5t hi\u1ec7n t\u1ea1i \u0111\u00e2y.' }) {
   return (
     <Stack alignItems="center" justifyContent="center" sx={{ minHeight: 240, px: 3, textAlign: 'center' }}>
       <SmartDisplayOutlinedIcon sx={{ fontSize: { xs: 74, md: 120 }, color: '#383838' }} />
@@ -207,7 +243,6 @@ function EmptyListMessage({ title = 'Chưa có dữ liệu', message = 'Nội du
     </Stack>
   );
 }
-
 function ProfileAvatar({ profile, size = { xs: 66, md: 108 }, editable = false, onClick }) {
   const avatarUrl = profile?.updated ? profile.avatar || '/assets/anime-05.jpg' : '';
 
@@ -238,8 +273,8 @@ function ProfileAvatar({ profile, size = { xs: 66, md: 108 }, editable = false, 
 function FeedbackProfileSummary() {
   const user = getCurrentUser();
   const profile = getProfileInfo();
-  const displayName = profile.updated && profile.fullName ? profile.fullName : 'Chưa cập nhật thông tin';
-  const displayEmail = profile.email || user?.email || 'Chưa cập nhật email';
+  const displayName = profile.updated && profile.fullName ? profile.fullName : 'ChÆ°a cáº­p nháº­t thĂ´ng tin';
+  const displayEmail = profile.email || user?.email || 'ChÆ°a cáº­p nháº­t email';
 
   return (
     <Stack direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.5, py: 1.4, borderBottom: `1px solid ${line}` }}>
@@ -343,7 +378,6 @@ function BottomNav({ active = 'home' }) {
     </Stack>
   );
 }
-
 function PlayThumb({ seed, wide = false }) {
   return (
     <Box sx={{ width: wide ? { xs: 118, md: 220 } : { xs: 103, md: 180 }, height: wide ? { xs: 67, md: 124 } : { xs: 58, md: 104 }, flexShrink: 0, position: 'relative', borderRadius: 0.4, background: `url(${poster(seed)}) center/cover`, overflow: 'hidden' }}>
@@ -356,9 +390,9 @@ function PlayThumb({ seed, wide = false }) {
   );
 }
 
-function VideoRow({ item, onMore }) {
+function VideoRow({ item, onOpen, onMore }) {
   return (
-    <Stack direction="row" spacing={1} alignItems="center" sx={{ cursor: 'pointer' }} onClick={() => window.alert(`Mở phim: ${item[0]} ${item[1]}`)}>
+    <Stack direction="row" spacing={1} alignItems="center" sx={{ cursor: 'pointer' }} onClick={() => (onOpen ? onOpen(item) : openAnimeDetailFromVideo(item))}>
       <PlayThumb seed={item[3]} wide />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{ color: '#f2f2f2', fontSize: { xs: 11, md: 17 }, fontWeight: 800 }} noWrap>{item[0]}</Typography>
@@ -386,6 +420,21 @@ function ApiOnlyState({ title, error }) {
   );
 }
 
+const fallbackVideoItems = () => {
+  const savedItems = [
+    ...readSavedVideoItems(favoriteAnimeKey),
+    ...readSavedVideoItems(followedAnimeKey)
+  ];
+  const seenTitles = new Set();
+
+  return [...savedItems, ...STATIC_RANKING_ITEMS].filter((item) => {
+    const title = item?.[0];
+    if (!title || seenTitles.has(title)) return false;
+    seenTitles.add(title);
+    return true;
+  });
+};
+
 function useApiVideoItems() {
   const [state, setState] = useState({ items: [], loading: true, error: '' });
 
@@ -398,8 +447,8 @@ function useApiVideoItems() {
       .then((nextItems) => {
         if (!ignore) setState({ items: nextItems, loading: false, error: '' });
       })
-      .catch((error) => {
-        if (!ignore) setState({ items: [], loading: false, error: error?.message || 'Không thể tải dữ liệu API' });
+      .catch(() => {
+        if (!ignore) setState({ items: fallbackVideoItems(), loading: false, error: '' });
       });
 
     return () => {
@@ -409,13 +458,12 @@ function useApiVideoItems() {
 
   return state;
 }
-
 export function SideMenuPage() {
   const menuItems = [
     [SportsEsportsOutlinedIcon, 'Anime', '/anime-menu'],
-    [ArticleOutlinedIcon, 'Truyện tranh', '/manga-menu'],
-    [CheckBoxOutlineBlankIcon, 'Tin tức', '/news-menu'],
-    [LeaderboardOutlinedIcon, 'Bảng xếp hạng', '/ranking']
+    [ArticleOutlinedIcon, 'Truyá»‡n tranh', '/manga-menu'],
+    [CheckBoxOutlineBlankIcon, 'Tin tá»©c', '/news-menu'],
+    [LeaderboardOutlinedIcon, 'Báº£ng xáº¿p háº¡ng', '/ranking']
   ];
 
   return (
@@ -448,12 +496,13 @@ export function SideMenuPage() {
 export function SearchResultsPage() {
   const initialQuery = new URLSearchParams(window.location.search).get('q') || '';
   const [query, setQuery] = useState(initialQuery);
-  const [chips, setChips] = useState(['Tuyết Ưng', 'Vạn Cổ Kiếm Tôn', 'Long Tộc', 'Ma Vực', 'Tinh Hà', 'Ngự Kiếm', 'Huyền Sư']);
+  const [chips, setChips] = useState(['Tuyáº¿t Æ¯ng', 'Váº¡n Cá»• Kiáº¿m TĂ´n', 'Long Tá»™c', 'Ma Vá»±c', 'Tinh HĂ ', 'Ngá»± Kiáº¿m', 'Huyá»n SÆ°']);
   const { items: searchCatalog, loading: searchLoading, error: searchError } = useApiVideoItems();
   const normalizedQuery = query.trim().toLowerCase();
   const results = normalizedQuery
-    ? searchCatalog.filter((item) => `${item[0]} ${item[1]} ${item[2]}`.toLowerCase().includes(normalizedQuery))
+    ? searchCatalog.filter((item) => `${item[0]} ${item[1]} ${item[2]} ${(item[5] || []).join(' ')}`.toLowerCase().includes(normalizedQuery))
     : searchCatalog;
+  const openAnimeResult = (item) => openAnimeDetailFromVideo(item);
 
   const submitSearch = (nextQuery = query) => {
     const keyword = nextQuery.trim();
@@ -473,7 +522,7 @@ export function SearchResultsPage() {
         <TopBar search searchValue={query} onSearchChange={setQuery} onSearchSubmit={() => submitSearch()} />
         <Box sx={{ px: { xs: 1.6, md: 4 }, pt: { xs: 1.5, md: 3 }, pb: 4 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ color: muted, mb: 1.1 }}>
-            <Typography sx={{ fontSize: { xs: 10.5, md: 16 }, fontWeight: 600 }}>Lịch sử tìm kiếm</Typography>
+            <Typography sx={{ fontSize: { xs: 10.5, md: 16 }, fontWeight: 600 }}>Lá»‹ch sá»­ tĂ¬m kiáº¿m</Typography>
             <IconButton size="small" onClick={() => setChips([])} sx={{ color: muted, p: 0 }}>
               <DeleteOutlineIcon sx={{ fontSize: { xs: 15, md: 24 } }} />
             </IconButton>
@@ -487,18 +536,18 @@ export function SearchResultsPage() {
           </Stack>
 
           <Typography sx={{ color: '#dcdcdc', fontSize: { xs: 11.5, md: 18 }, fontWeight: 800, mb: { xs: 0.8, md: 1.6 } }}>
-            {normalizedQuery ? `Kết quả cho "${query}"` : 'Tìm kiếm hot'}
+            {normalizedQuery ? `Káº¿t quáº£ cho "${query}"` : 'TĂ¬m kiáº¿m hot'}
           </Typography>
 
           {results.length > 0 ? (
             <Stack spacing={{ xs: 1, md: 2 }}>
               {results.map((item, index) => (
-                <Stack key={`${item[3]}-${index}`} onClick={() => window.alert(`Mở: ${item[0]}`)} direction="row" spacing={{ xs: 0.9, md: 2 }} alignItems="center" sx={{ cursor: 'pointer' }}>
+                <Stack key={`${item[3]}-${index}`} onClick={() => openAnimeResult(item)} direction="row" spacing={{ xs: 0.9, md: 2 }} alignItems="center" sx={{ cursor: 'pointer' }}>
                   <Box sx={{ width: { xs: 16, md: 28 }, height: { xs: 16, md: 28 }, bgcolor: index < 3 ? '#fb9a00' : '#606060', color: '#fff', display: 'grid', placeItems: 'center', fontSize: { xs: 9, md: 14 }, fontWeight: 800 }}>{index + 1}</Box>
                   <PlayThumb seed={item[3]} wide />
                   <Box sx={{ minWidth: 0 }}>
                     <Typography sx={{ color: '#f3f3f3', fontSize: { xs: 11, md: 17 }, fontWeight: 800, lineHeight: 1.2 }} noWrap>{item[0]}</Typography>
-                    <Typography sx={{ color: '#aaa', fontSize: { xs: 10, md: 14 }, mt: 0.5 }}>{[item[1], item[2]].filter(Boolean).join(' - ') || 'Anime'}</Typography>
+                    <Typography sx={{ color: '#aaa', fontSize: { xs: 10, md: 14 }, mt: 0.5 }}>{[item[1], item[2], (item[5] || []).slice(0, 2).join(', ')].filter(Boolean).join(' - ') || 'Anime'}</Typography>
                   </Box>
                 </Stack>
               ))}
@@ -506,8 +555,8 @@ export function SearchResultsPage() {
           ) : (
             <Stack alignItems="center" sx={{ pt: { xs: 8, md: 12 }, textAlign: 'center' }}>
               <SmartDisplayOutlinedIcon sx={{ fontSize: { xs: 82, md: 130 }, color: '#383838' }} />
-              <Typography sx={{ color: '#fff', fontSize: { xs: 13, md: 22 }, fontWeight: 800, mt: 2 }}>Không tìm thấy kết quả</Typography>
-              <Typography sx={{ color: '#aaa', fontSize: { xs: 10.5, md: 16 }, fontWeight: 700, mt: 1 }}>Thử từ khóa khác ngắn hơn.</Typography>
+              <Typography sx={{ color: '#fff', fontSize: { xs: 13, md: 22 }, fontWeight: 800, mt: 2 }}>KhĂ´ng tĂ¬m tháº¥y káº¿t quáº£</Typography>
+              <Typography sx={{ color: '#aaa', fontSize: { xs: 10.5, md: 16 }, fontWeight: 700, mt: 1 }}>Thá»­ tá»« khĂ³a khĂ¡c ngáº¯n hÆ¡n.</Typography>
             </Stack>
           )}
         </Box>
@@ -526,9 +575,9 @@ export function SearchEmptyPage() {
             <Box sx={{ position: 'absolute', right: 3, bottom: 10, width: 43, height: 43, borderRadius: '50%', border: `6px solid ${orange}` }} />
             <PlayArrowIcon sx={{ position: 'absolute', left: 41, top: 35, color: orange, fontSize: 29 }} />
           </Box>
-          <Typography sx={{ color: '#fff', fontSize: 13, fontWeight: 800, mt: 2.2 }}>Không tìm thấy kết quả</Typography>
+          <Typography sx={{ color: '#fff', fontSize: 13, fontWeight: 800, mt: 2.2 }}>KhĂ´ng tĂ¬m tháº¥y káº¿t quáº£</Typography>
           <Typography sx={{ color: '#d7d7d7', fontSize: 10.5, fontWeight: 700, mt: 1.5, lineHeight: 1.35 }}>
-            Hãy tìm kiếm thông tin anime, truyện tranh hoặc tin tức.
+            HĂ£y tĂ¬m kiáº¿m thĂ´ng tin anime, truyá»‡n tranh hoáº·c tin tá»©c.
           </Typography>
         </Stack>
       </Box>
@@ -673,12 +722,12 @@ export function EditProfilePage() {
     avatar: profile.updated && profile.avatar ? profile.avatar : ''
   });
   const fields = [
-    ['fullName', 'Họ và Tên', PersonOutlineIcon, 'text', 'Nhập họ và tên'],
+    ['fullName', 'Há» vĂ  TĂªn', PersonOutlineIcon, 'text', 'Nháº­p há» vĂ  tĂªn'],
     ['email', 'Email', MailOutlineIcon, 'email', 'Email', true],
-    ['phone', 'Số điện thoại', PhoneOutlinedIcon, 'tel', 'Nhập số điện thoại'],
-    ['birthday', 'Ngày sinh', CakeOutlinedIcon, 'date', ''],
-    ['gender', 'Giới tính', PersonOutlineIcon, 'select', 'Chọn giới tính'],
-    ['avatar', 'Ảnh đại diện', ImageOutlinedIcon, 'text', 'Dán đường dẫn ảnh đại diện']
+    ['phone', 'Sá»‘ Ä‘iá»‡n thoáº¡i', PhoneOutlinedIcon, 'tel', 'Nháº­p sá»‘ Ä‘iá»‡n thoáº¡i'],
+    ['birthday', 'NgĂ y sinh', CakeOutlinedIcon, 'date', ''],
+    ['gender', 'Giá»›i tĂ­nh', PersonOutlineIcon, 'select', 'Chá»n giá»›i tĂ­nh'],
+    ['avatar', 'áº¢nh Ä‘áº¡i diá»‡n', ImageOutlinedIcon, 'text', 'DĂ¡n Ä‘Æ°á»ng dáº«n áº£nh Ä‘áº¡i diá»‡n']
   ];
   useEffect(() => {
     if (!user?.id) {
@@ -736,9 +785,9 @@ export function EditProfilePage() {
   };
 
   return (
-    <PhonePage title="Chỉnh Sửa Hồ Sơ">
+    <PhonePage title="Chá»‰nh Sá»­a Há»“ SÆ¡">
       <Box sx={{ height: '100%', bgcolor: bg }}>
-        <TopBar title="Hồ sơ" />
+        <TopBar title="Há»“ sÆ¡" />
         <Stack alignItems="center" sx={{ pt: 2.5 }}>
           <ProfileAvatar profile={{ ...profile, updated: Boolean(values.avatar), avatar: values.avatar }} size={70} editable />
         </Stack>
@@ -758,8 +807,8 @@ export function EditProfilePage() {
                     >
                       <Box component="option" value="" sx={{ color: '#111' }}>{placeholder}</Box>
                       <Box component="option" value="Nam" sx={{ color: '#111' }}>Nam</Box>
-                      <Box component="option" value="Nữ" sx={{ color: '#111' }}>Nữ</Box>
-                      <Box component="option" value="Khác" sx={{ color: '#111' }}>Khác</Box>
+                      <Box component="option" value="Ná»¯" sx={{ color: '#111' }}>Ná»¯</Box>
+                      <Box component="option" value="KhĂ¡c" sx={{ color: '#111' }}>KhĂ¡c</Box>
                     </Box>
                     <KeyboardArrowDownIcon sx={{ fontSize: 16, color: '#999' }} />
                   </>
@@ -769,7 +818,7 @@ export function EditProfilePage() {
                     type={type}
                     disabled={disabled}
                     value={values[name]}
-                    placeholder={placeholder || 'Chưa cập nhật'}
+                    placeholder={placeholder || 'ChÆ°a cáº­p nháº­t'}
                     onChange={(event) => setFieldValue(name, event.target.value)}
                     sx={{
                       flex: 1,
@@ -791,7 +840,7 @@ export function EditProfilePage() {
           ))}
           {saveError ? <Typography sx={{ color: '#ff8a80', fontSize: 10.5, fontWeight: 800 }}>{saveError}</Typography> : null}
           <Button onClick={saveProfile} fullWidth variant="contained" sx={{ mt: 1.9, height: 36, bgcolor: orange, boxShadow: 'none', borderRadius: 0.5, fontSize: 11, fontWeight: 800, '&:hover': { bgcolor: orange, boxShadow: 'none' } }}>
-            Lưu
+            LÆ°u
           </Button>
         </Stack>
       </Box>
@@ -805,42 +854,42 @@ export function HistoryPage({ actions = false }) {
   const olderItems = watchedItems.slice(todayItems.length);
 
   if (historyLoading || historyError) {
-    return <ApiOnlyState title="Lá»‹ch sá»­ xem" error={historyError} />;
+    return <ApiOnlyState title="LĂ¡Â»â€¹ch sĂ¡Â»Â­ xem" error={historyError} />;
   }
 
   return (
-    <PhonePage title="Lịch sử xem">
+    <PhonePage title="Lá»‹ch sá»­ xem">
       <Box sx={{ height: '100%', bgcolor: bg, position: 'relative' }}>
         <Box sx={{ height: '100%', overflowY: 'auto', scrollbarWidth: 'none', pb: 8 }}>
-          <TopBar title="Lịch sử xem" />
+          <TopBar title="Lá»‹ch sá»­ xem" />
           <Box sx={{ px: 1.3, pt: 1.4 }}>
-            <SearchBox placeholder="Tìm kiếm video đã xem..." onClick={() => window.alert('Tìm trong lịch sử xem')} />
+            <SearchBox placeholder="TĂ¬m kiáº¿m video Ä‘Ă£ xem..." onClick={() => window.alert('TĂ¬m trong lá»‹ch sá»­ xem')} />
             {watchedItems.length > 0 ? (
               <>
-                <Typography sx={{ color: '#bdbdbd', fontSize: 11.3, fontWeight: 800, mt: 1.4, mb: 0.9 }}>Hôm nay</Typography>
+                <Typography sx={{ color: '#bdbdbd', fontSize: 11.3, fontWeight: 800, mt: 1.4, mb: 0.9 }}>HĂ´m nay</Typography>
                 <Stack spacing={1.15}>{todayItems.map((item) => <VideoRow key={`${item[0]}-${item[1]}`} item={item} onMore={() => go('/history-actions')} />)}</Stack>
                 {olderItems.length > 0 && (
                   <>
-                    <Typography sx={{ color: '#bdbdbd', fontSize: 11.3, fontWeight: 800, mt: 1.7, mb: 0.9 }}>Trước đó</Typography>
+                    <Typography sx={{ color: '#bdbdbd', fontSize: 11.3, fontWeight: 800, mt: 1.7, mb: 0.9 }}>TrÆ°á»›c Ä‘Ă³</Typography>
                     <Stack spacing={1.15}>{olderItems.map((item) => <VideoRow key={`${item[0]}-${item[1]}`} item={item} onMore={() => go('/history-actions')} />)}</Stack>
                   </>
                 )}
               </>
             ) : (
-              <EmptyListMessage title="Chưa có phim đã xem" message="Phim bạn xem sẽ được lưu vào lịch sử tại đây." />
+              <EmptyListMessage title="ChÆ°a cĂ³ phim Ä‘Ă£ xem" message="Phim báº¡n xem sáº½ Ä‘Æ°á»£c lÆ°u vĂ o lá»‹ch sá»­ táº¡i Ä‘Ă¢y." />
             )}
           </Box>
         </Box>
         {actions && (
           <Box onClick={() => go('/history')} sx={{ position: 'absolute', inset: 0, bgcolor: 'rgba(16,16,16,0.62)' }}>
             <Box onClick={(event) => event.stopPropagation()} sx={{ position: 'absolute', left: 20, right: 20, bottom: 84, bgcolor: '#151515', borderRadius: 0.8, overflow: 'hidden' }}>
-              <Stack onClick={() => window.alert('Đã xóa video khỏi lịch sử')} direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.4, height: 38, color: '#fff', cursor: 'pointer' }}>
+              <Stack onClick={() => window.alert('ÄĂ£ xĂ³a video khá»i lá»‹ch sá»­')} direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.4, height: 38, color: '#fff', cursor: 'pointer' }}>
                 <DeleteOutlineIcon sx={{ fontSize: 17 }} />
-                <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>Xóa video đã xem</Typography>
+                <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>XĂ³a video Ä‘Ă£ xem</Typography>
               </Stack>
-              <Stack onClick={() => window.alert('Đã mở chia sẻ phim')} direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.4, height: 38, color: '#fff', borderTop: `1px solid ${line}`, cursor: 'pointer' }}>
+              <Stack onClick={() => window.alert('ÄĂ£ má»Ÿ chia sáº» phim')} direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.4, height: 38, color: '#fff', borderTop: `1px solid ${line}`, cursor: 'pointer' }}>
                 <ArticleOutlinedIcon sx={{ fontSize: 17 }} />
-                <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>Chia sẻ phim</Typography>
+                <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>Chia sáº» phim</Typography>
               </Stack>
             </Box>
           </Box>
@@ -858,16 +907,16 @@ export function ChangePasswordPage({ filled = false }) {
     confirm: filled ? '************' : ''
   });
   const fields = [
-    ['current', 'Mật khẩu hiện tại', 'Nhập mật khẩu hiện tại'],
-    ['next', 'Mật khẩu mới', 'Nhập mật khẩu mới'],
-    ['confirm', 'Xác nhận mật khẩu mới', 'Xác nhận lại mật khẩu mới']
+    ['current', 'Máº­t kháº©u hiá»‡n táº¡i', 'Nháº­p máº­t kháº©u hiá»‡n táº¡i'],
+    ['next', 'Máº­t kháº©u má»›i', 'Nháº­p máº­t kháº©u má»›i'],
+    ['confirm', 'XĂ¡c nháº­n máº­t kháº©u má»›i', 'XĂ¡c nháº­n láº¡i máº­t kháº©u má»›i']
   ];
   const canSubmit = values.current && values.next && values.confirm;
 
   return (
-    <PhonePage title="Đổi Mật Khẩu">
+    <PhonePage title="Äá»•i Máº­t Kháº©u">
       <Box sx={{ height: '100%', bgcolor: bg, position: 'relative' }}>
-        <TopBar title="Đổi mật khẩu" />
+        <TopBar title="Äá»•i máº­t kháº©u" />
         <Stack spacing={1.7} sx={{ px: 1.7, pt: 2.2 }}>
           {fields.map(([name, label, placeholder]) => (
             <Box key={name}>
@@ -886,8 +935,8 @@ export function ChangePasswordPage({ filled = false }) {
             </Box>
           ))}
         </Stack>
-        <Button onClick={() => window.alert(canSubmit ? 'Đã đổi mật khẩu' : 'Vui lòng nhập đủ thông tin')} fullWidth variant="contained" sx={{ position: 'absolute', left: 18, right: 18, bottom: 25, width: 'calc(100% - 36px)', height: 36, bgcolor: canSubmit ? orange : '#ad6d08', boxShadow: 'none', borderRadius: 0.5, fontSize: 11, fontWeight: 800, '&:hover': { bgcolor: canSubmit ? orange : '#ad6d08', boxShadow: 'none' } }}>
-          Thay đổi mật khẩu
+        <Button onClick={() => window.alert(canSubmit ? 'ÄĂ£ Ä‘á»•i máº­t kháº©u' : 'Vui lĂ²ng nháº­p Ä‘á»§ thĂ´ng tin')} fullWidth variant="contained" sx={{ position: 'absolute', left: 18, right: 18, bottom: 25, width: 'calc(100% - 36px)', height: 36, bgcolor: canSubmit ? orange : '#ad6d08', boxShadow: 'none', borderRadius: 0.5, fontSize: 11, fontWeight: 800, '&:hover': { bgcolor: canSubmit ? orange : '#ad6d08', boxShadow: 'none' } }}>
+          Thay Ä‘á»•i máº­t kháº©u
         </Button>
       </Box>
     </PhonePage>
@@ -896,18 +945,18 @@ export function ChangePasswordPage({ filled = false }) {
 
 export function FaqPage() {
   const questions = [
-    'Cảnh báo giả mạo "App xem hoạt hình .V"?',
-    'Cách sửa đúng "App xem hoạt hình .V"?',
-    'Hướng dẫn xem anime',
-    'Làm thế nào để xem phim không lag',
-    'Làm thế nào để tải phim từ app',
-    'Làm thế nào để xem phim miễn phí?'
+    'Cáº£nh bĂ¡o giáº£ máº¡o "App xem hoáº¡t hĂ¬nh .V"?',
+    'CĂ¡ch sá»­a Ä‘Ăºng "App xem hoáº¡t hĂ¬nh .V"?',
+    'HÆ°á»›ng dáº«n xem anime',
+    'LĂ m tháº¿ nĂ o Ä‘á»ƒ xem phim khĂ´ng lag',
+    'LĂ m tháº¿ nĂ o Ä‘á»ƒ táº£i phim tá»« app',
+    'LĂ m tháº¿ nĂ o Ä‘á»ƒ xem phim miá»…n phĂ­?'
   ];
 
   return (
-    <PhonePage title="Câu hỏi thường gặp">
+    <PhonePage title="CĂ¢u há»i thÆ°á»ng gáº·p">
       <Box sx={{ height: '100%', bgcolor: bg }}>
-        <TopBar title="Câu hỏi thường gặp" />
+        <TopBar title="CĂ¢u há»i thÆ°á»ng gáº·p" />
         <Stack sx={{ pt: 1.2 }}>
           {questions.map((question) => (
             <Stack key={question} onClick={() => window.alert(question)} direction="row" alignItems="center" sx={{ height: 39, px: 1.7, borderBottom: `1px solid ${line}`, cursor: 'pointer' }}>
@@ -923,16 +972,16 @@ export function FaqPage() {
 
 export function FeedbackPage() {
   const items = [
-    [ChatOutlinedIcon, 'Chat với "App xem hoạt hình .V"', 'chat'],
-    [DescriptionOutlinedIcon, 'Báo cáo lỗi trang', 'report'],
-    [GppMaybeOutlinedIcon, 'Báo cáo hành vi giả mạo', 'fake'],
-    [LightbulbOutlinedIcon, 'Gửi góp ý', 'suggest']
+    [ChatOutlinedIcon, 'Chat vá»›i "App xem hoáº¡t hĂ¬nh .V"', 'chat'],
+    [DescriptionOutlinedIcon, 'BĂ¡o cĂ¡o lá»—i trang', 'report'],
+    [GppMaybeOutlinedIcon, 'BĂ¡o cĂ¡o hĂ nh vi giáº£ máº¡o', 'fake'],
+    [LightbulbOutlinedIcon, 'Gá»­i gĂ³p Ă½', 'suggest']
   ];
 
   return (
-    <PhonePage title="Phản ánh ý kiến">
+    <PhonePage title="Pháº£n Ă¡nh Ă½ kiáº¿n">
       <Box sx={{ height: '100%', bgcolor: bg }}>
-        <TopBar title="Phản ánh ý kiến" />
+        <TopBar title="Pháº£n Ă¡nh Ă½ kiáº¿n" />
         <FeedbackProfileSummary />
         <Stack sx={{ pt: 1 }}>
           {items.map(([Icon, label, type]) => (
@@ -940,7 +989,7 @@ export function FeedbackPage() {
               {createElement(Icon, { sx: { color: orange, fontSize: 29, mr: 1.1 } })}
               <Box sx={{ flex: 1 }}>
                 <Typography sx={{ color: '#fff', fontSize: 12, fontWeight: 800 }}>{label}</Typography>
-                <Typography sx={{ color: '#727272', fontSize: 9.5, mt: 0.25 }}>Chia sẻ vấn đề cho chúng tôi để cải thiện dịch vụ.</Typography>
+                <Typography sx={{ color: '#727272', fontSize: 9.5, mt: 0.25 }}>Chia sáº» váº¥n Ä‘á» cho chĂºng tĂ´i Ä‘á»ƒ cáº£i thiá»‡n dá»‹ch vá»¥.</Typography>
               </Box>
               <ChevronRightIcon sx={{ color: orange, fontSize: 20 }} />
             </Stack>
@@ -977,24 +1026,24 @@ export function FeedbackFormPage() {
   };
 
   return (
-    <PhonePage title="Phản ánh ý kiến">
+    <PhonePage title="Pháº£n Ă¡nh Ă½ kiáº¿n">
       <Box sx={{ height: '100%', bgcolor: bg, position: 'relative' }}>
-        <TopBar title="Phản ánh ý kiến" actionLabel="Gửi" onAction={submitFeedback} />
+        <TopBar title="Pháº£n Ă¡nh Ă½ kiáº¿n" actionLabel="Gá»­i" onAction={submitFeedback} />
         <FeedbackProfileSummary />
         <Box sx={{ px: 1.5, pt: 1.6 }}>
           <TextareaAutosize
             minRows={9}
             maxLength={1000}
             value={text}
-            placeholder="Gửi Nội dung tại đây"
+            placeholder="Gá»­i Ná»™i dung táº¡i Ä‘Ă¢y"
             onChange={(event) => setText(event.target.value)}
             style={{ width: '100%', resize: 'none', background: 'transparent', color: '#eee', border: 0, outline: 0, fontSize: 12, fontFamily: 'Roboto, Arial, sans-serif' }}
           />
           {message ? <Typography sx={{ color: message.startsWith('Da') ? orange : '#ff8a80', fontSize: 10.5, fontWeight: 800 }}>{message}</Typography> : null}
           <Typography align="right" sx={{ color: orange, fontSize: 10, mt: 9 }}>{text.length}/1000</Typography>
-          <Stack onClick={() => window.alert('Đính kèm ảnh')} alignItems="center" justifyContent="center" sx={{ width: 72, height: 72, mt: 2, border: '1px dashed #777', color: '#aaa', cursor: 'pointer' }}>
+          <Stack onClick={() => window.alert('ÄĂ­nh kĂ¨m áº£nh')} alignItems="center" justifyContent="center" sx={{ width: 72, height: 72, mt: 2, border: '1px dashed #777', color: '#aaa', cursor: 'pointer' }}>
             <ImageOutlinedIcon sx={{ fontSize: 24 }} />
-            <Typography sx={{ fontSize: 8, mt: 0.5 }}>Đăng tải hình ảnh</Typography>
+            <Typography sx={{ fontSize: 8, mt: 0.5 }}>ÄÄƒng táº£i hĂ¬nh áº£nh</Typography>
           </Stack>
         </Box>
       </Box>
@@ -1002,24 +1051,41 @@ export function FeedbackFormPage() {
   );
 }
 
-function VideoActionSheet({ kind, closePath, deletePath }) {
+function VideoActionSheet({ kind, closePath, deletePath, item }) {
+  const shareItem = () => {
+    const title = item?.[0] || 'Phim';
+
+    if (navigator.share) {
+      navigator.share({ title, text: title, url: window.location.origin + closePath }).catch(() => {});
+      return;
+    }
+
+    window.alert(`Chia se phim: ${title}`);
+  };
+
   return (
     <Box onClick={() => go(closePath)} sx={{ position: 'absolute', inset: 0, bgcolor: 'rgba(16,16,16,0.62)' }}>
       <Box onClick={(event) => event.stopPropagation()} sx={{ position: 'absolute', left: 20, right: 20, bottom: 30, bgcolor: '#0f0f0f', borderRadius: 0.8, overflow: 'hidden' }}>
         <Stack onClick={() => go(deletePath)} direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.4, height: 38, color: '#fff', cursor: 'pointer' }}>
           <DeleteOutlineIcon sx={{ fontSize: 17 }} />
-          <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>{kind === 'favorite' ? 'Xóa phim đã thích' : 'Xóa phim đã theo dõi'}</Typography>
+          <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>{kind === 'favorite' ? 'XĂ³a phim Ä‘Ă£ thĂ­ch' : 'XĂ³a phim Ä‘Ă£ theo dĂµi'}</Typography>
         </Stack>
-        <Stack onClick={() => window.alert('Đã mở chia sẻ phim')} direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.4, height: 38, color: '#fff', borderTop: `1px solid ${line}`, cursor: 'pointer' }}>
+        <Stack onClick={shareItem} direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.4, height: 38, color: '#fff', borderTop: `1px solid ${line}`, cursor: 'pointer' }}>
           <ArticleOutlinedIcon sx={{ fontSize: 17 }} />
-          <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>Chia sẻ phim</Typography>
+          <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>Chia sáº» phim</Typography>
         </Stack>
       </Box>
     </Box>
   );
 }
 
-function DeleteConfirmDialog({ title, message, closePath, confirmText = 'Xóa' }) {
+function DeleteConfirmDialog({ title, message, closePath, storageKey, item, confirmText = 'Xoa' }) {
+  const confirmDelete = () => {
+    removeSavedVideoItem(storageKey, item);
+    window.localStorage.removeItem(selectedListItemKey);
+    go(closePath);
+  };
+
   return (
     <Box sx={{ position: 'absolute', inset: 0, bgcolor: 'rgba(16,16,16,0.68)', display: 'grid', placeItems: 'center', px: 3 }}>
       <Box sx={{ width: '100%', bgcolor: '#0c0c0c', borderRadius: 0.8, p: 1.6 }}>
@@ -1034,9 +1100,9 @@ function DeleteConfirmDialog({ title, message, closePath, confirmText = 'Xóa' }
         <Typography align="center" sx={{ color: '#d5d5d5', fontSize: 10.5, mt: 0.5, mb: 1.6 }}>{message}</Typography>
         <Stack direction="row" spacing={1.2}>
           <Button onClick={() => go(closePath)} fullWidth variant="contained" sx={{ bgcolor: '#777', boxShadow: 'none', height: 34, borderRadius: 0.5, fontSize: 11, '&:hover': { bgcolor: '#777', boxShadow: 'none' } }}>
-            Đóng
+            ÄĂ³ng
           </Button>
-          <Button onClick={() => { window.alert('Đã xóa'); go(closePath); }} fullWidth variant="contained" sx={{ bgcolor: orange, boxShadow: 'none', height: 34, borderRadius: 0.5, fontSize: 11, '&:hover': { bgcolor: orange, boxShadow: 'none' } }}>
+          <Button onClick={confirmDelete} fullWidth variant="contained" sx={{ bgcolor: orange, boxShadow: 'none', height: 34, borderRadius: 0.5, fontSize: 11, '&:hover': { bgcolor: orange, boxShadow: 'none' } }}>
             {confirmText}
           </Button>
         </Stack>
@@ -1045,7 +1111,13 @@ function DeleteConfirmDialog({ title, message, closePath, confirmText = 'Xóa' }
   );
 }
 
-function VideoListPage({ title, items, active, actionPath, actions = false, deleteDialog = false, deleteTitle, deleteMessage, closePath }) {
+function VideoListPage({ title, items, storageKey, active, actionPath, actions = false, deleteDialog = false, deleteTitle, deleteMessage, closePath }) {
+  const selectedItem = readSelectedVideoItem() || items[0] || null;
+  const openActions = (item) => {
+    rememberSelectedVideoItem(item);
+    go(actionPath);
+  };
+
   return (
     <PhonePage title={title}>
       <Box sx={{ height: '100%', bgcolor: bg, position: 'relative' }}>
@@ -1054,61 +1126,57 @@ function VideoListPage({ title, items, active, actionPath, actions = false, dele
           {items.length > 0 ? (
             <Stack spacing={1.25} sx={{ px: 1.6, pt: 1.6 }}>
               {items.map((item) => (
-                <VideoRow key={`${item[0]}-${item[1]}`} item={item} onMore={() => go(actionPath)} />
+                <VideoRow key={`${item[0]}-${item[1]}`} item={item} onMore={() => openActions(item)} />
               ))}
             </Stack>
           ) : (
-            <EmptyListMessage title={active === 'like' ? 'Chưa có phim đã thích' : 'Chưa có phim theo dõi'} message={active === 'like' ? 'Những phim bạn thích sẽ xuất hiện tại đây.' : 'Những phim bạn theo dõi sẽ xuất hiện tại đây.'} />
+            <EmptyListMessage title={active === 'like' ? 'ChÆ°a cĂ³ phim Ä‘Ă£ thĂ­ch' : 'ChÆ°a cĂ³ phim theo dĂµi'} message={active === 'like' ? 'Nhá»¯ng phim báº¡n thĂ­ch sáº½ xuáº¥t hiá»‡n táº¡i Ä‘Ă¢y.' : 'Nhá»¯ng phim báº¡n theo dĂµi sáº½ xuáº¥t hiá»‡n táº¡i Ä‘Ă¢y.'} />
           )}
         </Box>
         {active && <BottomNav active={active} />}
-        {actions && <VideoActionSheet kind={active === 'like' ? 'favorite' : 'follow'} closePath={closePath} deletePath={`${closePath}-delete`} />}
-        {deleteDialog && <DeleteConfirmDialog title={deleteTitle} message={deleteMessage} closePath={closePath} />}
+        {actions && <VideoActionSheet kind={active === 'like' ? 'favorite' : 'follow'} item={selectedItem} closePath={closePath} deletePath={`${closePath}-delete`} />}
+        {deleteDialog && <DeleteConfirmDialog title={deleteTitle} message={deleteMessage} storageKey={storageKey} item={selectedItem} closePath={closePath} />}
       </Box>
     </PhonePage>
   );
 }
 
 export function FavoritesPage({ actions = false, deleteDialog = false }) {
-  const { items, loading, error } = useApiVideoItems();
+  const items = readSavedVideoItems(favoriteAnimeKey);
 
-  if (loading || error) {
-    return <ApiOnlyState title="Phim Ä‘Ă£ thĂ­ch" error={error} />;
-  }
 
   return (
     <VideoListPage
-      title="Phim đã thích"
+      title="Phim Ä‘Ă£ thĂ­ch"
       items={items}
+      storageKey={favoriteAnimeKey}
       active="like"
       actionPath="/favorites-actions"
       actions={actions}
       deleteDialog={deleteDialog}
       closePath="/favorites"
-      deleteTitle="Xóa phim đã thích"
-      deleteMessage="Bạn muốn xóa video này khỏi danh sách đã thích?"
+      deleteTitle="XĂ³a phim Ä‘Ă£ thĂ­ch"
+      deleteMessage="Báº¡n muá»‘n xĂ³a video nĂ y khá»i danh sĂ¡ch Ä‘Ă£ thĂ­ch?"
     />
   );
 }
 
 export function FollowedPage({ actions = false, deleteDialog = false }) {
-  const { items, loading, error } = useApiVideoItems();
+  const items = readSavedVideoItems(followedAnimeKey);
 
-  if (loading || error) {
-    return <ApiOnlyState title="Phim Ä‘Ă£ theo dĂµi" error={error} />;
-  }
 
   return (
     <VideoListPage
-      title="Phim đã theo dõi"
+      title="Phim Ä‘Ă£ theo dĂµi"
       items={items}
+      storageKey={followedAnimeKey}
       active="follow"
       actionPath="/followed-actions"
       actions={actions}
       deleteDialog={deleteDialog}
       closePath="/followed"
-      deleteTitle="Xóa video theo dõi"
-      deleteMessage="Bạn muốn xóa video này khỏi danh sách theo dõi?"
+      deleteTitle="XĂ³a video theo dĂµi"
+      deleteMessage="Báº¡n muá»‘n xĂ³a video nĂ y khá»i danh sĂ¡ch theo dĂµi?"
     />
   );
 }

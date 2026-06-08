@@ -204,7 +204,7 @@ function Header({ onNotice }) {
                 return;
               }
               if (key === 'search') go('/search');
-              if (key === 'profile') go(getCurrentUser() ? '/profile' : '/login-required');
+              if (key === 'profile') go(getCurrentUser() ? '/profile' : '/no-login');
             }}
             sx={{ color: isLight ? '#555' : '#777', p: { xs: 0.65, md: 1 } }}
           >
@@ -568,7 +568,7 @@ function MenuPage() {
             <Stack
               key={label}
               onClick={() => {
-                const path = ['/home', '/favorites', '/followed', getCurrentUser() ? '/profile' : '/login-required'][index];
+                const path = ['/home', '/favorites', '/followed', getCurrentUser() ? '/profile' : '/no-login'][index];
                 go(path);
               }}
               alignItems="center"

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Box, Typography, IconButton, Button, Divider, Chip } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PlayCircleOutlinedIcon from '@mui/icons-material/PlayCircleOutlined';
@@ -93,6 +93,7 @@ const hasStoredAnime = (key, title) => {
 
 export default function AnimeDetailPage() {
   const navigate = useNavigate();
+  const scrollRef = useRef(null);
   const [viewMode, setViewMode] = useState('trailer');
   const [anime, setAnime] = useState(readSelectedAnime);
   const [recommendedAnime, setRecommendedAnime] = useState([]);
@@ -157,6 +158,8 @@ export default function AnimeDetailPage() {
   useEffect(() => {
     setIsLiked(hasStoredAnime(favoriteAnimeKey, anime.title));
     setIsFollowed(hasStoredAnime(followedAnimeKey, anime.title));
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
   }, [anime.title]);
 
   const episodeItems = episodes.map((episode) => ({
@@ -167,9 +170,16 @@ export default function AnimeDetailPage() {
   const tags = [anime.title, `${anime.title} Vietsub`, `${anime.title} HD`, anime.eps];
   const genreText = anime.genres?.length ? anime.genres.join(', ') : 'Äang cáº­p nháº­t';
   const activeTrailerUrl = trailerUrl(anime.trailer);
+  const resetDetailView = () => {
+    setViewMode('trailer');
+    setNotice('');
+    setCommentText('');
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
   const showTrailer = () => {
     setViewMode('trailer');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const showEpisodes = () => {
     setViewMode('episodes');
@@ -221,8 +231,7 @@ export default function AnimeDetailPage() {
   const openRecommendedAnime = (item) => {
     window.localStorage.setItem(selectedAnimeKey, JSON.stringify(item));
     setAnime(toAnimeDetail(item));
-    setViewMode('trailer');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    resetDetailView();
   };
   const submitComment = (event) => {
     event.preventDefault();
@@ -236,7 +245,7 @@ export default function AnimeDetailPage() {
   return (
     <PageShell title="Chi tiáº¿t Anime">
       <PhoneFrame>
-        <Box sx={{ height: '100%', overflowY: 'auto', scrollbarWidth: 'none', backgroundColor: '#101010', color: '#fff', pb: { xs: 4, md: 6 } }}>
+        <Box ref={scrollRef} sx={{ height: '100%', overflowY: 'auto', scrollbarWidth: 'none', backgroundColor: '#101010', color: '#fff', pb: { xs: 4, md: 6 } }}>
           
           <Box sx={{ position: 'relative' }}>
             <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, display: 'flex', alignItems: 'center', px: { xs: 1.1, md: 3 }, py: { xs: 0.9, md: 1.4 }, background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)' }}>

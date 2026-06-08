@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Box, Typography, IconButton, Button, Divider, Chip } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
@@ -44,6 +44,7 @@ const toRecommendedManga = (item, index) => ({
 
 export default function MangaDetailPage() {
   const navigate = useNavigate();
+  const scrollRef = useRef(null);
   const [activeTab, setActiveTab] = useState('doc-truyen');
   const [manga, setManga] = useState(readSelectedManga);
   const [recommendedManga, setRecommendedManga] = useState([]);
@@ -76,13 +77,19 @@ export default function MangaDetailPage() {
     window.localStorage.setItem(selectedMangaKey, JSON.stringify(item));
     setManga(toMangaDetail(item));
     setActiveTab('doc-truyen');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
   };
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [manga.title]);
 
   return (
     <PageShell title="Đọc Truyện Tranh">
       <PhoneFrame>
-        <Box sx={{ height: '100%', overflowY: 'auto', scrollbarWidth: 'none', backgroundColor: '#101010', color: '#fff', pb: { xs: 4, md: 6 } }}>
+        <Box ref={scrollRef} sx={{ height: '100%', overflowY: 'auto', scrollbarWidth: 'none', backgroundColor: '#101010', color: '#fff', pb: { xs: 4, md: 6 } }}>
           
           <Box sx={{ display: 'flex', alignItems: 'center', px: { xs: 1.2, md: 3 }, py: { xs: 1, md: 1.6 }, backgroundColor: '#101010', position: 'sticky', top: 0, zIndex: 100 }}>
             <IconButton size="small" sx={{ color: '#fff', p: 0.55 }} onClick={() => navigate(-1)}>

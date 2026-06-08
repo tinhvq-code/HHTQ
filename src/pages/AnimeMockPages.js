@@ -364,7 +364,7 @@ function BottomNav({ active = 'home' }) {
     [HomeIcon, 'Trang chủ', 'home', '/home'],
     [FavoriteIcon, 'Phim đã thích', 'like', '/favorites'],
     [NotificationsIcon, 'Phim đã theo dõi', 'follow', '/followed'],
-    [SettingsIcon, 'Cài đặt', 'settings', getCurrentUser() ? '/profile' : '/login-required']
+    [SettingsIcon, 'Cài đặt', 'settings', getCurrentUser() ? '/profile' : '/no-login']
   ];
 
   return (

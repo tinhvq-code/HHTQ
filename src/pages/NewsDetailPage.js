@@ -1,18 +1,40 @@
-import { Box, Typography, IconButton, Divider, Avatar } from '@mui/material';
+import { useRef, useState } from 'react';
+import { Avatar, Box, Divider, IconButton, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import ShareIcon from '@mui/icons-material/Share';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
+import ShareIcon from '@mui/icons-material/Share';
 import { useNavigate } from 'react-router-dom';
 import PageShell from '../components/PageShell.js';
 import PhoneFrame from '../components/PhoneFrame.js';
 
-const relatedNews = [
-  { id: 1, time: '16:10 Hôm nay', title: 'One Piece sẽ chính thức lên sóng tập mới trở lại từ 17 tháng 4!', tag: 'Tin Anime', img: 'https://placehold.co/300x200/2a2a2a/FFF?text=One+Piece' },
-  { id: 2, time: '18:40 Hôm nay', title: 'Đón chờ podcast “Anime Roomy” với 4 cô nàng dễ thương!', tag: 'Tin Anime', img: 'https://placehold.co/300x200/2a2a2a/FFF?text=Anime+Roomy' },
-  { id: 3, time: '17:23 Hôm qua', title: 'Doraemon movie 41 chính thức khởi chiếu tại Việt Nam với cái tên hoàn toàn mới!', tag: 'Tin Anime', img: 'https://placehold.co/300x200/2a2a2a/FFF?text=Doraemon' },
-];
-
 const selectedNewsKey = 'selectedNewsDetail';
+
+const relatedNews = [
+  {
+    id: 1,
+    time: '16:10 Hôm nay',
+    title: 'One Piece sẽ chính thức lên sóng tập mới trở lại từ 17 tháng 4!',
+    tag: 'Tin Anime',
+    views: '165k lượt xem',
+    img: 'https://placehold.co/300x200/2a2a2a/FFF?text=One+Piece'
+  },
+  {
+    id: 2,
+    time: '18:40 Hôm nay',
+    title: 'Đón chờ podcast Anime Roomy với 4 cô nàng dễ thương!',
+    tag: 'Tin Anime',
+    views: '92k lượt xem',
+    img: 'https://placehold.co/300x200/2a2a2a/FFF?text=Anime+Roomy'
+  },
+  {
+    id: 3,
+    time: '17:23 Hôm qua',
+    title: 'Doraemon movie 41 chính thức khởi chiếu tại Việt Nam với cái tên hoàn toàn mới!',
+    tag: 'Tin Anime',
+    views: '118k lượt xem',
+    img: 'https://placehold.co/300x200/2a2a2a/FFF?text=Doraemon'
+  }
+];
 
 const splitMeta = (meta = '') => {
   const [tag = 'Tin Anime', time = 'Mới cập nhật'] = meta.split('/').map((part) => part.trim());
@@ -20,25 +42,28 @@ const splitMeta = (meta = '') => {
 };
 
 const fallbackNews = {
-  title: 'Sau 30 năm, ca khúc “CHA-LA HEAD CHA-LA” của Dragon Ball Z được tái hiện trở lại!',
+  title: 'Sau 30 năm, ca khúc CHA-LA HEAD CHA-LA của Dragon Ball Z được tái hiện trở lại!',
   tag: 'Tin Anime',
   time: '8:10 Hôm nay',
   views: 'Đang cập nhật',
   img: 'https://placehold.co/800x450/2a2a2a/FFF?text=Dragon+Ball+Cover'
 };
 
+const toNewsDetail = (item) => {
+  const meta = splitMeta(item?.meta);
+
+  return {
+    title: item?.title || fallbackNews.title,
+    tag: item?.tag || meta.tag,
+    time: item?.time || meta.time,
+    views: item?.views || fallbackNews.views,
+    img: item?.img || fallbackNews.img
+  };
+};
+
 const readSelectedNews = () => {
   try {
-    const item = JSON.parse(window.localStorage.getItem(selectedNewsKey));
-    const meta = splitMeta(item?.meta);
-
-    return {
-      title: item?.title || fallbackNews.title,
-      tag: item?.tag || meta.tag,
-      time: item?.time || meta.time,
-      views: item?.views || fallbackNews.views,
-      img: item?.img || fallbackNews.img
-    };
+    return toNewsDetail(JSON.parse(window.localStorage.getItem(selectedNewsKey)));
   } catch {
     return fallbackNews;
   }
@@ -46,20 +71,50 @@ const readSelectedNews = () => {
 
 export default function NewsDetailPage() {
   const navigate = useNavigate();
-  const news = readSelectedNews();
+  const scrollRef = useRef(null);
+  const [news, setNews] = useState(readSelectedNews);
+
+  const openRelatedNews = (item) => {
+    window.localStorage.setItem(selectedNewsKey, JSON.stringify(item));
+    setNews(toNewsDetail(item));
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
+
+  const shareNews = async () => {
+    const shareData = {
+      title: news.title,
+      text: news.title,
+      url: window.location.href
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+
+      await navigator.clipboard.writeText(shareData.url);
+    } catch {
+      // Sharing is optional; keep the detail page stable if the browser blocks it.
+    }
+  };
 
   return (
     <PageShell title="Chi tiết Tin Tức">
       <PhoneFrame>
-        <Box sx={{ height: '100%', overflowY: 'auto', scrollbarWidth: 'none', backgroundColor: '#101010', color: '#fff', pb: 6 }}>
-          
+        <Box ref={scrollRef} sx={{ height: '100%', overflowY: 'auto', scrollbarWidth: 'none', backgroundColor: '#101010', color: '#fff', pb: 6 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, pt: 3, position: 'sticky', top: 0, bgcolor: '#101010', zIndex: 10 }}>
             <IconButton size="small" sx={{ color: '#fff' }} onClick={() => navigate(-1)}>
               <ArrowBackIcon />
             </IconButton>
             <Box>
-              <IconButton size="small" sx={{ color: '#fff', mr: 1 }}><BookmarkBorderIcon /></IconButton>
-              <IconButton size="small" sx={{ color: '#fff' }}><ShareIcon /></IconButton>
+              <IconButton size="small" sx={{ color: '#fff', mr: 1 }}>
+                <BookmarkBorderIcon />
+              </IconButton>
+              <IconButton size="small" sx={{ color: '#fff' }} onClick={shareNews}>
+                <ShareIcon />
+              </IconButton>
             </Box>
           </Box>
 
@@ -80,9 +135,9 @@ export default function NewsDetailPage() {
             </Box>
 
             <Typography sx={{ color: '#ccc', lineHeight: 1.6, mb: 2, fontSize: 13 }}>
-              {news.title} là tin mới được lấy từ danh sách tin anime trên trang chủ. Nội dung này đang được đồng bộ theo tin bạn vừa chọn.
+              {news.title} là tin mới được lấy từ danh sách tin anime trên trang chủ. Nội dung được đồng bộ theo tin bạn vừa chọn.
             </Typography>
-            
+
             <Typography sx={{ color: '#ccc', lineHeight: 1.6, mb: 3, fontSize: 13 }}>
               Lượt quan tâm: {news.views}. Các thông tin chi tiết hơn có thể được cập nhật thêm khi API tin tức riêng sẵn sàng.
             </Typography>
@@ -103,11 +158,11 @@ export default function NewsDetailPage() {
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {relatedNews.map((item) => (
-                <Box key={item.id} sx={{ display: 'flex', gap: 1.5, cursor: 'pointer', '&:hover': { opacity: 0.8 } }} onClick={() => navigate('/news-detail')}>
+                <Box key={item.id} sx={{ display: 'flex', gap: 1.5, cursor: 'pointer', '&:hover': { opacity: 0.8 } }} onClick={() => openRelatedNews(item)}>
                   <Box sx={{ width: 120, flexShrink: 0, borderRadius: 1.5, overflow: 'hidden', aspectRatio: '16/9' }}>
                     <img src={item.img} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </Box>
-                  
+
                   <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', flex: 1 }}>
                     <Typography sx={{ color: '#ff9800', fontSize: 10, mb: 0.5 }}>{item.time}</Typography>
                     <Typography sx={{ fontWeight: 'bold', lineHeight: 1.3, mb: 1, fontSize: 12, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
@@ -120,7 +175,6 @@ export default function NewsDetailPage() {
                 </Box>
               ))}
             </Box>
-
           </Box>
         </Box>
       </PhoneFrame>

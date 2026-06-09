@@ -253,7 +253,7 @@ function EmptyListMessage({ title = 'Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u', messa
   );
 }
 function ProfileAvatar({ profile, size = { xs: 66, md: 108 }, editable = false, onClick }) {
-  const avatarUrl = profile?.updated ? profile.avatar || '/assets/anime-05.jpg' : '';
+  const avatarUrl = profile?.avatar || ''; 
 
   return (
     <Box
@@ -282,8 +282,8 @@ function ProfileAvatar({ profile, size = { xs: 66, md: 108 }, editable = false, 
 function FeedbackProfileSummary() {
   const user = getCurrentUser();
   const profile = getProfileInfo();
-  const displayName = profile.updated && profile.fullName ? profile.fullName : 'ChÆ°a cáº­p nháº­t thĂ´ng tin';
-  const displayEmail = profile.email || user?.email || 'ChÆ°a cáº­p nháº­t email';
+  const displayName = profile.fullName || 'Chưa cập nhật thông tin';
+  const displayEmail = profile.email || user?.email || 'Chưa cập nhật email';
 
   return (
     <Stack direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.5, py: 1.4, borderBottom: `1px solid ${line}` }}>
@@ -620,7 +620,7 @@ export function ProfilePage({ guest = false, language = false }) {
   const user = getCurrentUser();
   const [profile, setProfile] = useState(getProfileInfo());
   const copy = getLanguageCopy();
-  const displayName = profile.updated && profile.fullName ? profile.fullName : copy.notUpdated;
+  const displayName = profile.fullName || copy.notUpdated;
   const displayEmail = profile.email || user?.email || copy.emailEmpty;
 
   useEffect(() => {
@@ -725,13 +725,14 @@ export function EditProfilePage() {
   const [saveError, setSaveError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
+  
   const [values, setValues] = useState({
-    fullName: profile.updated && profile.fullName ? profile.fullName : '',
+    fullName: profile.fullName || user?.fullName || '',
     email: profile.email || user?.email || '',
-    phone: profile.updated && profile.phone ? profile.phone : '',
-    birthday: profile.updated && profile.birthday ? profile.birthday : '',
-    gender: profile.updated && profile.gender ? profile.gender : '',
-    avatar: profile.updated && profile.avatar ? profile.avatar : ''
+    phone: profile.phone || '',
+    birthday: profile.birthday || '',
+    gender: profile.gender || '',
+    avatar: profile.avatar || user?.avatar || ''
   });
   const fields = [
     ['fullName', 'Họ và tên', PersonOutlineIcon, 'text', 'Nhập họ và tên'],
@@ -755,12 +756,12 @@ export function EditProfilePage() {
         if (ignore) return;
         setUserProfileCache(nextProfile, profileOwner);
         setValues({
-          fullName: nextProfile.updated && nextProfile.fullName ? nextProfile.fullName : '',
+          fullName: nextProfile.fullName || user?.fullName || '',
           email: nextProfile.email || user?.email || '',
-          phone: nextProfile.updated && nextProfile.phone ? nextProfile.phone : '',
-          birthday: nextProfile.updated && nextProfile.birthday ? nextProfile.birthday : '',
-          gender: nextProfile.updated && nextProfile.gender ? nextProfile.gender : '',
-          avatar: nextProfile.updated && nextProfile.avatar ? nextProfile.avatar : ''
+          phone: nextProfile.phone || '',
+          birthday: nextProfile.birthday || '',
+          gender: nextProfile.gender || '',
+          avatar: nextProfile.avatar || user?.avatar || ''
         });
       })
       .catch(() => { });
@@ -769,6 +770,7 @@ export function EditProfilePage() {
       ignore = true;
     };
   }, [user?.email, user?.id]);
+
 
   const setFieldValue = (name, value) => {
     setSaveError('');

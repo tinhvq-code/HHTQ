@@ -117,24 +117,43 @@ export function AuthTabs({ active }) {
     </Stack>
   );
 }
-
 export function SocialButton({ provider }) {
   const isGoogle = provider === 'Google';
+  const isFacebook = provider === 'Facebook';
+
+  const handleClick = () => {
+    if (isFacebook) {
+      window.location.href = `${import.meta.env.VITE_API_BASE}/api/auth/facebook`;
+      return;
+    }
+
+    window.alert(`${provider} chưa hỗ trợ đăng nhập.`);
+  };
 
   return (
     <Button
       fullWidth
       variant="outlined"
-      onClick={() => window.alert(`${provider} chưa hỗ trợ đăng nhập.`)}
-      startIcon={isGoogle ? <GoogleIcon sx={{ color: '#4285f4' }} /> : <FacebookRoundedIcon sx={{ color: '#4267b2' }} />}
+      onClick={handleClick}
+      startIcon={
+        isGoogle ? (
+          <GoogleIcon sx={{ color: '#4285f4' }} />
+        ) : (
+          <FacebookRoundedIcon sx={{ color: '#4267b2' }} />
+        )
+      }
       sx={{
         height: { xs: 34, md: 44 },
-        borderColor: authColors.fieldBorder,
+        borderColor: isFacebook ? '#4267b2' : authColors.fieldBorder,
         color: '#d6d6d6',
         borderRadius: 0.75,
         fontSize: { xs: 12, md: 14 },
         fontWeight: 600,
-        '&:hover': { borderColor: '#4a4a4a', bgcolor: 'rgba(255,255,255,0.02)' }
+        textTransform: 'none',
+        '&:hover': {
+          borderColor: isFacebook ? '#4267b2' : '#4a4a4a',
+          bgcolor: isFacebook ? 'rgba(66, 103, 178, 0.08)' : 'rgba(255,255,255,0.02)'
+        }
       }}
     >
       {provider}

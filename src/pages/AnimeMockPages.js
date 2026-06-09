@@ -77,13 +77,15 @@ const poster = (image, w = 360, h = 220) => {
 
   return assetPosters[index] || `/assets/anime-01.jpg?w=${w}&h=${h}`;
 };
-const go = (path) => {
-  if (window.location.pathname === path) return;
+const fixVietnameseText = (text = '') => {
+  if (!text || typeof text !== 'string') return '';
 
-  window.history.pushState({}, '', path);
-  window.dispatchEvent(new PopStateEvent('popstate'));
+  try {
+    return decodeURIComponent(escape(text));
+  } catch {
+    return text;
+  }
 };
-
 const selectedAnimeKey = 'selectedAnimeDetail';
 const watchedAnimeKey = 'watchedAnimeItems';
 const favoriteAnimeKey = 'favoriteAnimeItems';
@@ -144,14 +146,17 @@ const getProfileInfo = () => {
   const user = getCurrentUser();
   const cachedProfile = getUserProfileCache(user);
 
+  const fullName = cachedProfile?.fullName || user?.fullName || '';
+  const email = cachedProfile?.email || user?.email || '';
+
   return {
     userId: user?.id,
-    updated: Boolean(cachedProfile?.updated || user?.fullName),
-    fullName: cachedProfile?.fullName || user?.fullName || '',
-    email: user?.email || '',
-    phone: cachedProfile?.phone || user?.phone || '',
+    updated: Boolean(cachedProfile?.updated || fullName),
+    fullName: fixVietnameseText(fullName),
+    email: fixVietnameseText(email),
+    phone: fixVietnameseText(cachedProfile?.phone || user?.phone || ''),
     birthday: cachedProfile?.birthday || user?.birthday || '',
-    gender: cachedProfile?.gender || user?.gender || '',
+    gender: fixVietnameseText(cachedProfile?.gender || user?.gender || ''),
     avatar: cachedProfile?.avatar || user?.avatar || ''
   };
 };
@@ -282,9 +287,11 @@ function ProfileAvatar({ profile, size = { xs: 66, md: 108 }, editable = false, 
 function FeedbackProfileSummary() {
   const user = getCurrentUser();
   const profile = getProfileInfo();
-  const displayName = profile.updated && profile.fullName ? profile.fullName : 'ChÆ°a cáº­p nháº­t thĂ´ng tin';
-  const displayEmail = profile.email || user?.email || 'ChÆ°a cáº­p nháº­t email';
+  const displayName = profile.updated && profile.fullName
+    ? fixVietnameseText(profile.fullName)
+    : 'Chưa cập nhật thông tin';
 
+  const displayEmail = fixVietnameseText(profile.email || user?.email || 'Chưa cập nhật email');
   return (
     <Stack direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.5, py: 1.4, borderBottom: `1px solid ${line}` }}>
       <ProfileAvatar profile={profile} size={46} />
@@ -622,7 +629,6 @@ export function ProfilePage({ guest = false, language = false }) {
   const copy = getLanguageCopy();
   const displayName = profile.updated && profile.fullName ? profile.fullName : copy.notUpdated;
   const displayEmail = profile.email || user?.email || copy.emailEmpty;
-
   useEffect(() => {
     if (guest || !user?.id) {
       return undefined;
@@ -1057,33 +1063,6 @@ export function FeedbackFormPage() {
   const user = getCurrentUser();
   const [text, setText] = useState('');
   const [message, setMessage] = useState('');
-  const handleGoogleSuccess = (credentialResponse) => {
-    try {
-      const userInfo = jwtDecode(
-        credentialResponse.credential
-      );
-
-      console.log(userInfo);
-
-      const user = {
-        id: userInfo.sub,
-        email: userInfo.email,
-        fullName: userInfo.name,
-        avatar: userInfo.picture,
-        provider: 'google'
-      };
-
-      setSessionUser(user);
-
-      setMessage('Đăng nhập Google thành công');
-
-      setTimeout(() => {
-        window.location.href = '/home';
-      }, 500);
-    } catch (error) {
-      console.error(error);
-    }
-  };
   const feedbackType = new URLSearchParams(window.location.search).get('type') || 'general';
 
   const submitFeedback = async () => {

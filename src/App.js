@@ -25,6 +25,7 @@ import NoWifiPage from './pages/NoWifiPage.js';
 import RegisterErrorPage from './pages/RegisterErrorPage.js';
 import RegisterFilledPage from './pages/RegisterFilledPage.js';
 import RegisterPage from './pages/RegisterPage.js';
+import AuthSuccessPage from './pages/AuthSuccessPage.js';
 
 import AnimeDetailPage from './pages/AnimeDetailPage.js';
 import AnimeMenuPage from './pages/AnimeMenuPage.js';
@@ -43,7 +44,8 @@ const publicRoutes = [
   { path: '/login-error', element: <LoginErrorPage /> },
   { path: '/register', element: <RegisterPage /> },
   { path: '/register-filled', element: <RegisterFilledPage /> },
-  { path: '/register-error', element: <RegisterErrorPage /> }
+  { path: '/register-error', element: <RegisterErrorPage /> },
+  { path: '/auth/success', element: <AuthSuccessPage /> }
 ];
 
 const protectedRoutes = [

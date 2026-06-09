@@ -14,6 +14,7 @@ import PageShell from '../components/PageShell.js';
 import PhoneFrame from '../components/PhoneFrame.js';
 import { fetchHomeAnime } from '../services/animeApi.js';
 import { getSessionUser } from '../services/authSession.js';
+import logoUrl from '../../logo.jpg';
 
 const selectedAnimeKey = 'selectedAnimeDetail';
 const selectedMangaKey = 'selectedMangaDetail';
@@ -190,7 +191,45 @@ function Header({ onNotice }) {
       <IconButton size="small" onClick={() => go('/menu')} sx={{ color: isLight ? '#242424' : '#d8d8d8' }}>
         <MenuIcon sx={{ fontSize: { xs: 20, md: 26 } }} />
       </IconButton>
-      <Typography sx={{ fontSize: { xs: 16, md: 24 }, fontWeight: 800, color: isLight ? '#1c1c1c' : '#dedede' }}>HHTQ Anime</Typography>
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={{ xs: 0.8, md: 1.15 }}
+        sx={{
+          minWidth: 0,
+          px: 1,
+          py: 0.35,
+          borderRadius: 1,
+          color: isLight ? '#171717' : '#f7f7f7'
+        }}
+      >
+        <Box
+          component="img"
+          src={logoUrl}
+          alt="HHTQ Anime logo"
+          sx={{
+            width: { xs: 28, md: 38 },
+            height: { xs: 28, md: 38 },
+            borderRadius: '50%',
+            objectFit: 'cover',
+            flexShrink: 0,
+            border: isLight ? '2px solid rgba(0,0,0,0.14)' : '2px solid rgba(255,255,255,0.28)',
+            boxShadow: isLight ? '0 4px 12px rgba(0,0,0,0.16)' : '0 4px 14px rgba(0,0,0,0.48)'
+          }}
+        />
+        <Typography
+          sx={{
+            fontSize: { xs: 16, md: 24 },
+            fontWeight: 900,
+            lineHeight: 1,
+            color: 'inherit',
+            whiteSpace: 'nowrap',
+            textShadow: isLight ? 'none' : '0 1px 10px rgba(0,0,0,0.55)'
+          }}
+        >
+          HHTQ Anime
+        </Typography>
+      </Stack>
       <Stack direction="row" spacing={{ xs: 0.2, md: 1 }}>
         {[
           [PublicIcon, 'region'],

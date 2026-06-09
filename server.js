@@ -7,11 +7,43 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sql from 'mssql';
 
+import passport from 'passport';
+import { Strategy as FacebookStrategy } from 'passport-facebook';
+import jwt from 'jsonwebtoken';
+
 /* global process */
 dotenv.config();
 
 const app = express();
-const PORT = Number(process.env.API_PORT || 3001);
+passport.use(
+  new FacebookStrategy(
+    {
+      clientID: process.env.FACEBOOK_APP_ID,
+      clientSecret: process.env.FACEBOOK_APP_SECRET,
+      callbackURL: process.env.FACEBOOK_CALLBACK_URL,
+      profileFields: ['id', 'displayName', 'photos',]
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        const user = {
+          id: profile.id,
+          facebookId: profile.id,
+          email: null,
+          fullName: profile.displayName,
+          avatar: profile.photos?.[0]?.value || null,
+          provider: 'facebook'
+        };
+
+        return done(null, user);
+      } catch (error) {
+        return done(error, null);
+      }
+    }
+  )
+);
+
+app.use(passport.initialize());
+const PORT = Number(process.env.PORT || process.env.API_PORT || 3001);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const USERS_FILE = path.join(__dirname, 'src', 'data', 'users.json');
 
@@ -221,28 +253,28 @@ const getColumn = (row, ...names) => names.map((name) => row?.[name]).find((valu
 const mapSqlUser = (row) =>
   row
     ? {
-        id: String(getColumn(row, 'id', 'Id', 'ID')),
-        fullName: getColumn(row, 'fullName', 'FullName', 'name', 'Name') || '',
-        email: getColumn(row, 'email', 'Email') || '',
-        phone: getColumn(row, 'phone', 'Phone') || '',
-        birthday: getColumn(row, 'birthday', 'Birthday') || '',
-        gender: getColumn(row, 'gender', 'Gender') || '',
-        passwordHash: getColumn(row, 'passwordHash', 'PasswordHash', 'password', 'Password') || ''
-      }
+      id: String(getColumn(row, 'id', 'Id', 'ID')),
+      fullName: getColumn(row, 'fullName', 'FullName', 'name', 'Name') || '',
+      email: getColumn(row, 'email', 'Email') || '',
+      phone: getColumn(row, 'phone', 'Phone') || '',
+      birthday: getColumn(row, 'birthday', 'Birthday') || '',
+      gender: getColumn(row, 'gender', 'Gender') || '',
+      passwordHash: getColumn(row, 'passwordHash', 'PasswordHash', 'password', 'Password') || ''
+    }
     : null;
 
 const mapSqlProfile = (row, user) =>
   row
     ? {
-        userId: String(getColumn(row, 'userId', 'UserId', 'UserID')),
-        updated: Boolean(getColumn(row, 'updated', 'Updated')),
-        fullName: getColumn(row, 'fullName', 'FullName') || '',
-        email: getColumn(row, 'email', 'Email') || '',
-        phone: getColumn(row, 'phone', 'Phone') || '',
-        birthday: getColumn(row, 'birthday', 'Birthday') || '',
-        gender: getColumn(row, 'gender', 'Gender') || '',
-        avatar: getColumn(row, 'avatar', 'Avatar') || ''
-      }
+      userId: String(getColumn(row, 'userId', 'UserId', 'UserID')),
+      updated: Boolean(getColumn(row, 'updated', 'Updated')),
+      fullName: getColumn(row, 'fullName', 'FullName') || '',
+      email: getColumn(row, 'email', 'Email') || '',
+      phone: getColumn(row, 'phone', 'Phone') || '',
+      birthday: getColumn(row, 'birthday', 'Birthday') || '',
+      gender: getColumn(row, 'gender', 'Gender') || '',
+      avatar: getColumn(row, 'avatar', 'Avatar') || ''
+    }
     : profileFromUser(user);
 
 const findSqlUserByEmail = async (email) => {
@@ -703,7 +735,38 @@ app.post('/api/feedback', async (req, res) => {
 
 await connectSqlServer();
 
-app.listen(PORT, () => {
-  console.log(`API server running at http://localhost:${PORT}`);
-});
 
+app.get('/api/auth/facebook', (req, res, next) => {
+  passport.authenticate('facebook', {
+    scope: []
+  })(req, res, next);
+});
+app.get(
+  '/api/auth/facebook/callback',
+  passport.authenticate('facebook', {
+    session: false,
+    failureRedirect: `${process.env.CLIENT_URL}/login?error=facebook`
+  }),
+  (req, res) => {
+    const token = jwt.sign(
+      {
+        id: req.user.facebookId,
+        email: req.user.email,
+        fullName: req.user.fullName,
+        avatar: req.user.avatar,
+        provider: 'facebook'
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.redirect(`${process.env.CLIENT_URL}/auth/success?token=${token}`);
+  }
+);
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`API server running at http://localhost:${PORT}`);
+  });
+}
+
+export default app;

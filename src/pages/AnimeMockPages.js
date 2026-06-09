@@ -99,8 +99,8 @@ const writeSavedVideoItems = (key, items) => {
 
 const videoItemToDetail = (item) => ({
   title: item?.[0] || '',
-  eps: item?.[1] || 'Táº­p má»›i',
-  views: item?.[2] || 'Äang cáº­p nháº­t lÆ°á»£t xem',
+  eps: item?.[1] || 'Tập mới',
+  views: item?.[2] || 'Đang cập nhật lượt xem',
   img: item?.[3] || '',
   trailer: item?.[4] || null,
   genres: item?.[5] || []
@@ -561,10 +561,10 @@ export function SearchResultsPage() {
               ))}
             </Stack>
           ) : (
-            <Stack alignItems="center" sx={{ pt: { xs: 8, md: 12 }, textAlign: 'center' }}>
+           <Stack alignItems="center" sx={{ pt: { xs: 8, md: 12 }, textAlign: 'center' }}>
               <SmartDisplayOutlinedIcon sx={{ fontSize: { xs: 82, md: 130 }, color: '#383838' }} />
-              <Typography sx={{ color: '#fff', fontSize: { xs: 13, md: 22 }, fontWeight: 800, mt: 2 }}>KhĂ´ng tĂ¬m tháº¥y káº¿t quáº£</Typography>
-              <Typography sx={{ color: '#aaa', fontSize: { xs: 10.5, md: 16 }, fontWeight: 700, mt: 1 }}>Thá»­ tá»« khĂ³a khĂ¡c ngáº¯n hÆ¡n.</Typography>
+              <Typography sx={{ color: '#fff', fontSize: { xs: 13, md: 22 }, fontWeight: 800, mt: 2 }}>Không tìm thấy kết quả</Typography>
+              <Typography sx={{ color: '#aaa', fontSize: { xs: 10.5, md: 16 }, fontWeight: 700, mt: 1 }}>Thử từ khóa khác ngắn hơn.</Typography>
             </Stack>
           )}
         </Box>
@@ -584,7 +584,7 @@ export function SearchEmptyPage() {
             <Box sx={{ position: 'absolute', right: 3, bottom: 10, width: 43, height: 43, borderRadius: '50%', border: `6px solid ${orange}` }} />
             <PlayArrowIcon sx={{ position: 'absolute', left: 41, top: 35, color: orange, fontSize: 29 }} />
           </Box>
-          <Typography sx={{ color: '#fff', fontSize: 13, fontWeight: 800, mt: 2.2 }}>KhĂ´ng tĂ¬m tháº¥y káº¿t quáº£</Typography>
+          <Typography sx={{ color: '#fff', fontSize: 13, fontWeight: 800, mt: 2.2 }}>Không tìm thấy kết quả</Typography>
           <Typography sx={{ color: '#d7d7d7', fontSize: 10.5, fontWeight: 700, mt: 1.5, lineHeight: 1.35 }}>
             Anime, truyện tranh.
           </Typography>
@@ -926,11 +926,11 @@ export function HistoryPage({ actions = false }) {
         {actions && (
           <Box onClick={() => go('/history')} sx={{ position: 'absolute', inset: 0, bgcolor: 'rgba(16,16,16,0.62)' }}>
             <Box onClick={(event) => event.stopPropagation()} sx={{ position: 'absolute', left: 20, right: 20, bottom: 84, bgcolor: '#151515', borderRadius: 0.8, overflow: 'hidden' }}>
-              <Stack onClick={() => window.alert('ÄĂ£ xĂ³a video khá»i lá»‹ch sá»­')} direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.4, height: 38, color: '#fff', cursor: 'pointer' }}>
+              <Stack onClick={() => window.alert('Đã xóa video khỏi lịch sử­')} direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.4, height: 38, color: '#fff', cursor: 'pointer' }}>
                 <DeleteOutlineIcon sx={{ fontSize: 17 }} />
                 <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>Xóa video đã xem</Typography>
               </Stack>
-              <Stack onClick={() => window.alert('ÄĂ£ má»Ÿ chia sáº» phim')} direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.4, height: 38, color: '#fff', borderTop: `1px solid ${line}`, cursor: 'pointer' }}>
+              <Stack onClick={() => window.alert('Đã mở chia sẻ phim')} direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.4, height: 38, color: '#fff', borderTop: `1px solid ${line}`, cursor: 'pointer' }}>
                 <ArticleOutlinedIcon sx={{ fontSize: 17 }} />
                 <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>Chia sẻ phim</Typography>
               </Stack>
@@ -1074,7 +1074,7 @@ export function FeedbackFormPage() {
         content: text.trim()
       });
       setText('');
-      setMessage('ÄĂ£ gá»­i pháº£n há»“i.');
+      setMessage('Đã gửi phản hồi.');
     } catch (error) {
       setMessage(error?.message || 'Không thể gửi phản hồi.');
     }
@@ -1094,7 +1094,7 @@ export function FeedbackFormPage() {
             onChange={(event) => setText(event.target.value)}
             style={{ width: '100%', resize: 'none', background: 'transparent', color: '#eee', border: 0, outline: 0, fontSize: 12, fontFamily: 'Roboto, Arial, sans-serif' }}
           />
-          {message ? <Typography sx={{ color: message.startsWith('ÄĂ£') ? orange : '#ff8a80', fontSize: 10.5, fontWeight: 800 }}>{message}</Typography> : null}
+          {message ? <Typography sx={{ color: message.startsWith('Đã') ? orange : '#ff8a80', fontSize: 10.5, fontWeight: 800 }}>{message}</Typography> : null}
           <Typography align="right" sx={{ color: orange, fontSize: 10, mt: 9 }}>{text.length}/1000</Typography>
           <Stack onClick={() => window.alert('Đính kèm ảnh')} alignItems="center" justifyContent="center" sx={{ width: 72, height: 72, mt: 2, border: '1px dashed #777', color: '#aaa', cursor: 'pointer' }}>
             <ImageOutlinedIcon sx={{ fontSize: 24 }} />

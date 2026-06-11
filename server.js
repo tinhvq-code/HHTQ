@@ -46,9 +46,10 @@ app.use(passport.initialize());
 const PORT = Number(process.env.PORT || process.env.API_PORT || 3001);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const USERS_FILE = path.join(__dirname, 'src', 'data', 'users.json');
+let localUsersCache = null;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 
 const normalizeEmail = (email = '') => email.trim().toLowerCase();
 
@@ -116,6 +117,19 @@ const initSqlTables = async (pool) => {
       );
     END;
 
+    IF OBJECT_ID('dbo.AnimeComments', 'U') IS NULL
+    BEGIN
+      CREATE TABLE dbo.AnimeComments (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        AnimeTitle NVARCHAR(255) NOT NULL,
+        UserId NVARCHAR(100) NULL,
+        UserName NVARCHAR(255) NOT NULL DEFAULT N'Người dùng',
+        Avatar NVARCHAR(MAX) NULL,
+        Content NVARCHAR(MAX) NOT NULL,
+        CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+      );
+    END;
+
     IF COL_LENGTH('dbo.AppUsers', 'createdAt') IS NULL
       ALTER TABLE dbo.AppUsers ADD createdAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME();
 
@@ -130,6 +144,21 @@ const initSqlTables = async (pool) => {
 
     IF COL_LENGTH('dbo.FeedbackMessages', 'createdAt') IS NULL
       ALTER TABLE dbo.FeedbackMessages ADD createdAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME();
+
+    IF COL_LENGTH('dbo.AnimeComments', 'ParentId') IS NULL
+      ALTER TABLE dbo.AnimeComments ADD ParentId INT NULL;
+
+    IF OBJECT_ID('dbo.CommentReactions', 'U') IS NULL
+    BEGIN
+      CREATE TABLE dbo.CommentReactions (
+        Id INT IDENTITY(1,1) PRIMARY KEY,
+        CommentId INT NOT NULL,
+        UserId NVARCHAR(100) NOT NULL,
+        Emoji NVARCHAR(10) NOT NULL,
+        CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT UQ_CommentReaction UNIQUE (CommentId, UserId)
+      );
+    END;
   `);
 };
 
@@ -227,6 +256,32 @@ feedbackSchema.set('toJSON', {
 });
 
 const Feedback = mongoose.model('Feedback', feedbackSchema);
+
+const commentSchema = new mongoose.Schema(
+  {
+    animeTitle: { type: String, required: true },
+    userId: { type: String, default: null },
+    userName: { type: String, default: 'Nguoi dung' },
+    avatar: { type: String, default: '' },
+    content: { type: String, required: true },
+    parentId: { type: String, default: null },
+    reactions: [{ userId: { type: String, required: true }, emoji: { type: String, required: true } }]
+  },
+  { timestamps: true }
+);
+
+commentSchema.set('toJSON', {
+  virtuals: true,
+  transform: (doc, ret) => {
+    ret.id = String(ret._id);
+    delete ret._id;
+    delete ret.__v;
+  }
+});
+
+const Comment = mongoose.model('Comment', commentSchema);
+
+const localCommentsCache = [];
 
 const isMongoReady = () => mongoose.connection.readyState === 1;
 
@@ -330,8 +385,8 @@ const createSqlUser = async ({ fullName, email, phone, birthday, gender, passwor
     .input('birthday', sql.NVarChar(50), user.birthday)
     .input('gender', sql.NVarChar(50), user.gender)
     .query(`
-      INSERT INTO dbo.UserProfiles (userId, fullName, email, phone, birthday, gender)
-      VALUES (@userId, @fullName, @email, @phone, @birthday, @gender)
+      INSERT INTO dbo.UserProfiles (userId, fullName, email, phone, birthday, gender, updated)
+      VALUES (@userId, @fullName, @email, @phone, @birthday, @gender, 1)
     `);
 
   return user;
@@ -430,18 +485,33 @@ const updateSqlProfile = async (userId, payload) => {
 };
 
 const readLocalUsers = async () => {
+  if (localUsersCache) return localUsersCache;
+
   try {
     const content = await fs.readFile(USERS_FILE, 'utf8');
     const users = JSON.parse(content);
-    return Array.isArray(users) ? users : [];
+    localUsersCache = Array.isArray(users) ? users : [];
   } catch {
-    return [];
+    localUsersCache = [];
   }
+
+  return localUsersCache;
 };
 
 const writeLocalUsers = async (users) => {
-  await fs.mkdir(path.dirname(USERS_FILE), { recursive: true });
-  await fs.writeFile(USERS_FILE, `${JSON.stringify(users, null, 2)}\n`, 'utf8');
+  localUsersCache = users;
+
+  try {
+    await fs.mkdir(path.dirname(USERS_FILE), { recursive: true });
+    await fs.writeFile(USERS_FILE, `${JSON.stringify(users, null, 2)}\n`, 'utf8');
+  } catch (error) {
+    if (['EROFS', 'EACCES', 'EPERM'].includes(error.code)) {
+      console.warn('Local users file is read-only; using in-memory fallback:', error.message);
+      return;
+    }
+
+    throw error;
+  }
 };
 
 const findLocalUserByEmail = async (email) => {
@@ -454,6 +524,8 @@ const findLocalUserById = async (userId) => {
   return users.find((user) => String(user.id) === String(userId)) || null;
 };
 
+const getLocalPassword = (user) => user?.passwordHash || user?.password || '';
+
 const createLocalUser = async ({ fullName, email, phone, birthday, gender, password }) => {
   const users = await readLocalUsers();
   const newUser = {
@@ -463,7 +535,8 @@ const createLocalUser = async ({ fullName, email, phone, birthday, gender, passw
     phone: phone || '',
     birthday: birthday || '',
     gender: gender || '',
-    password
+    password,
+    passwordHash: password
   };
 
   await writeLocalUsers([...users, newUser]);
@@ -474,21 +547,25 @@ const updateLocalProfile = async (userId, payload) => {
   const users = await readLocalUsers();
   const index = users.findIndex((user) => String(user.id) === String(userId));
 
-  if (index < 0) return null;
-
-  users[index] = {
-    ...users[index],
+  const updatedFields = {
     fullName: payload.fullName || '',
-    email: normalizeEmail(payload.email),
+    email: normalizeEmail(payload.email || ''),
     phone: payload.phone || '',
     birthday: payload.birthday || '',
     gender: payload.gender || '',
     avatar: payload.avatar || ''
   };
 
+  if (index < 0) {
+    const newUser = { id: String(userId), ...updatedFields, password: '', passwordHash: '' };
+    await writeLocalUsers([...users, newUser]);
+    const user = publicUser(newUser);
+    return { user, profile: profileFromUser(user) };
+  }
+
+  users[index] = { ...users[index], ...updatedFields };
   await writeLocalUsers(users);
   const user = publicUser(users[index]);
-
   return { user, profile: profileFromUser(user) };
 };
 
@@ -559,8 +636,13 @@ app.post('/api/auth/register', async (req, res) => {
 
       const profile = await UserProfile.create({
         userId: newUser._id,
+        updated: true,
+        fullName: newUser.fullName,
         email: newUser.email,
-        fullName: newUser.fullName
+        phone: newUser.phone || '',
+        birthday: newUser.birthday || '',
+        gender: newUser.gender || '',
+        avatar: ''
       });
 
       return res.status(201).json({ user: newUser, profile, source: 'mongodb' });
@@ -618,7 +700,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     const localUser = await findLocalUserByEmail(normalizedEmail);
     if (!localUser) return res.status(404).json({ message: 'Email không tồn tại.' });
-    if (localUser.password !== password) return res.status(401).json({ message: 'Mật khẩu không đúng.' });
+    if (getLocalPassword(localUser) !== password) return res.status(401).json({ message: 'Mật khẩu không đúng.' });
 
     const syncedUser = await ensureSqlUserFromLegacy(localUser, password);
     if (syncedUser) {
@@ -659,37 +741,50 @@ app.get('/api/users/:userId/profile', async (req, res) => {
 });
 
 app.put('/api/users/:userId/profile', async (req, res) => {
-  try {
-    if (isSqlReady() && /^\d+$/.test(String(req.params.userId))) {
-      const result = await updateSqlProfile(req.params.userId, req.body);
-      if (result) return res.json({ ...result, source: 'sql-server' });
-    }
+  const { userId } = req.params;
+  let lastError = null;
 
-    if (isMongoReady() && /^[0-9a-f]{24}$/i.test(String(req.params.userId))) {
+  if (isSqlReady() && /^\d+$/.test(String(userId))) {
+    try {
+      const result = await updateSqlProfile(userId, req.body);
+      if (result) return res.json({ ...result, source: 'sql-server' });
+    } catch (err) {
+      console.error('SQL profile update failed:', err.message);
+      lastError = err;
+    }
+  }
+
+  if (isMongoReady() && /^[0-9a-f]{24}$/i.test(String(userId))) {
+    try {
       const { fullName, email, phone, birthday, gender, avatar } = req.body;
       const normalizedEmail = normalizeEmail(email);
       const updatedProfile = await UserProfile.findOneAndUpdate(
-        { userId: req.params.userId },
+        { userId },
         { fullName, email: normalizedEmail, phone, birthday, gender, avatar, updated: true },
         { new: true, upsert: true }
       );
-
       const updatedUser = await User.findByIdAndUpdate(
-        req.params.userId,
+        userId,
         { fullName, email: normalizedEmail, phone, birthday, gender },
         { new: true }
       );
-
       if (updatedUser) return res.json({ user: updatedUser, profile: updatedProfile, source: 'mongodb' });
+    } catch (err) {
+      console.error('MongoDB profile update failed:', err.message);
+      lastError = err;
     }
-
-    const localResult = await updateLocalProfile(req.params.userId, req.body);
-    if (!localResult) return res.status(404).json({ message: 'Không tìm thấy hồ sơ.' });
-
-    return res.json({ ...localResult, source: 'local-json-fallback' });
-  } catch (error) {
-    return res.status(500).json({ message: 'Không thể cập nhật hồ sơ.', error: error.message });
   }
+
+  try {
+    const localResult = await updateLocalProfile(userId, req.body);
+    if (!localResult) return res.status(404).json({ message: 'Không tìm thấy hồ sơ.' });
+    return res.json({ ...localResult, source: 'local-json-fallback' });
+  } catch (err) {
+    console.error('Local profile update failed:', err.message);
+    lastError = err;
+  }
+
+  return res.status(500).json({ message: 'Không thể cập nhật hồ sơ.', error: lastError?.message });
 });
 
 app.post('/api/feedback', async (req, res) => {
@@ -734,6 +829,280 @@ app.post('/api/feedback', async (req, res) => {
 });
 
 await connectSqlServer();
+
+const COMMENT_LIMIT_PER_HOUR = 3;
+
+const mergeReactionsIntoComments = (comments, reactionRows, myReactionRows) => {
+  const reactionMap = {};
+  for (const row of reactionRows) {
+    const cid = String(row.CommentId || row.commentId);
+    if (!reactionMap[cid]) reactionMap[cid] = {};
+    reactionMap[cid][row.Emoji || row.emoji] = Number(row.cnt || row.count || 0);
+  }
+  const myMap = {};
+  for (const row of myReactionRows) {
+    myMap[String(row.CommentId || row.commentId)] = row.Emoji || row.emoji;
+  }
+  return comments.map((c) => {
+    const cid = String(c.id || c._id);
+    return { ...c, reactions: reactionMap[cid] || {}, myReaction: myMap[cid] || null };
+  });
+};
+
+app.get('/api/anime-comments', async (req, res) => {
+  try {
+    const animeTitle = String(req.query.animeTitle || '').trim();
+    const sessionId = String(req.query.sessionId || '').trim();
+
+    if (!animeTitle) return res.status(400).json({ message: 'Thieu ten phim.' });
+
+    if (isSqlReady()) {
+      const commentsResult = await sqlPool
+        .request()
+        .input('AnimeTitle', sql.NVarChar(255), animeTitle)
+        .query(`
+          SELECT TOP (200)
+            Id AS id, AnimeTitle AS animeTitle, UserId AS userId,
+            UserName AS userName, Avatar AS avatar, Content AS content,
+            ParentId AS parentId, CreatedAt AS createdAt
+          FROM dbo.AnimeComments
+          WHERE AnimeTitle = @AnimeTitle
+          ORDER BY CreatedAt ASC
+        `);
+
+      const reactionsResult = await sqlPool
+        .request()
+        .input('AnimeTitle2', sql.NVarChar(255), animeTitle)
+        .query(`
+          SELECT r.CommentId, r.Emoji, COUNT(*) AS cnt
+          FROM dbo.CommentReactions r
+          WHERE r.CommentId IN (SELECT Id FROM dbo.AnimeComments WHERE AnimeTitle = @AnimeTitle2)
+          GROUP BY r.CommentId, r.Emoji
+        `);
+
+      const myReactionsResult = sessionId
+        ? await sqlPool
+          .request()
+          .input('AnimeTitle3', sql.NVarChar(255), animeTitle)
+          .input('SessionId', sql.NVarChar(100), sessionId)
+          .query(`
+            SELECT r.CommentId, r.Emoji
+            FROM dbo.CommentReactions r
+            WHERE r.CommentId IN (SELECT Id FROM dbo.AnimeComments WHERE AnimeTitle = @AnimeTitle3)
+            AND r.UserId = @SessionId
+          `)
+        : { recordset: [] };
+
+      const comments = mergeReactionsIntoComments(
+        commentsResult.recordset,
+        reactionsResult.recordset,
+        myReactionsResult.recordset
+      );
+      return res.json({ comments, source: 'sql-server' });
+    }
+
+    if (isMongoReady()) {
+      const docs = await Comment.find({ animeTitle }).sort({ createdAt: 1 }).limit(200);
+      const comments = docs.map((c) => {
+        const plain = c.toJSON();
+        const reactions = {};
+        for (const r of plain.reactions || []) {
+          reactions[r.emoji] = (reactions[r.emoji] || 0) + 1;
+        }
+        const myReaction = sessionId
+          ? (plain.reactions || []).find((r) => r.userId === sessionId)?.emoji || null
+          : null;
+        return { ...plain, reactions, myReaction };
+      });
+      return res.json({ comments, source: 'mongodb' });
+    }
+
+    const comments = localCommentsCache
+      .filter((c) => c.animeTitle === animeTitle)
+      .map((c) => {
+        const reactions = {};
+        for (const r of c.reactions || []) reactions[r.emoji] = (reactions[r.emoji] || 0) + 1;
+        const myReaction = sessionId
+          ? (c.reactions || []).find((r) => r.userId === sessionId)?.emoji || null
+          : null;
+        return { ...c, reactions, myReaction };
+      });
+    return res.json({ comments, source: 'local-memory' });
+  } catch (error) {
+    console.error('Load comments error:', error);
+    return res.status(500).json({ message: 'Khong the tai binh luan.' });
+  }
+});
+
+app.post('/api/anime-comments', async (req, res) => {
+  try {
+    const { animeTitle, userId, userName, avatar, content, parentId, sessionId } = req.body;
+    const actorId = userId || sessionId || null;
+
+    if (!animeTitle || !content) return res.status(400).json({ message: 'Thieu ten phim hoac noi dung.' });
+
+    if (isSqlReady()) {
+      if (actorId) {
+        const limitCheck = await sqlPool
+          .request()
+          .input('AnimeTitle', sql.NVarChar(255), animeTitle)
+          .input('ActorId', sql.NVarChar(100), actorId)
+          .query(`
+            SELECT COUNT(*) AS cnt FROM dbo.AnimeComments
+            WHERE AnimeTitle = @AnimeTitle AND UserId = @ActorId
+            AND CreatedAt >= DATEADD(HOUR, -1, SYSUTCDATETIME())
+          `);
+        if ((limitCheck.recordset[0]?.cnt || 0) >= COMMENT_LIMIT_PER_HOUR) {
+          return res.status(429).json({ message: 'Ban da dat gioi han 3 binh luan moi gio.' });
+        }
+      }
+
+      const result = await sqlPool
+        .request()
+        .input('AnimeTitle', sql.NVarChar(255), animeTitle)
+        .input('UserId', sql.NVarChar(100), actorId)
+        .input('UserName', sql.NVarChar(255), userName || 'Ban')
+        .input('Avatar', sql.NVarChar(sql.MAX), avatar || '')
+        .input('Content', sql.NVarChar(sql.MAX), content)
+        .input('ParentId', sql.Int, parentId ? Number(parentId) : null)
+        .query(`
+          INSERT INTO dbo.AnimeComments (AnimeTitle, UserId, UserName, Avatar, Content, ParentId)
+          OUTPUT INSERTED.Id AS id, INSERTED.AnimeTitle AS animeTitle,
+            INSERTED.UserId AS userId, INSERTED.UserName AS userName,
+            INSERTED.Avatar AS avatar, INSERTED.Content AS content,
+            INSERTED.ParentId AS parentId, INSERTED.CreatedAt AS createdAt
+          VALUES (@AnimeTitle, @UserId, @UserName, @Avatar, @Content, @ParentId)
+        `);
+      return res.status(201).json({ comment: { ...result.recordset[0], reactions: {}, myReaction: null }, source: 'sql-server' });
+    }
+
+    if (isMongoReady()) {
+      if (actorId) {
+        const count = await Comment.countDocuments({
+          animeTitle,
+          userId: actorId,
+          createdAt: { $gte: new Date(Date.now() - 3600000) }
+        });
+        if (count >= COMMENT_LIMIT_PER_HOUR) {
+          return res.status(429).json({ message: 'Ban da dat gioi han 3 binh luan moi gio.' });
+        }
+      }
+      const comment = await Comment.create({
+        animeTitle, userId: actorId, userName: userName || 'Ban',
+        avatar: avatar || '', content, parentId: parentId || null, reactions: []
+      });
+      return res.status(201).json({ comment: { ...comment.toJSON(), reactions: {}, myReaction: null }, source: 'mongodb' });
+    }
+
+    if (actorId) {
+      const hourAgo = Date.now() - 3600000;
+      const count = localCommentsCache.filter(
+        (c) => c.animeTitle === animeTitle && c.userId === actorId && new Date(c.createdAt).getTime() > hourAgo
+      ).length;
+      if (count >= COMMENT_LIMIT_PER_HOUR) {
+        return res.status(429).json({ message: 'Ban da dat gioi han 3 binh luan moi gio.' });
+      }
+    }
+    const comment = {
+      id: String(Date.now()), animeTitle, userId: actorId,
+      userName: userName || 'Ban', avatar: avatar || '', content,
+      parentId: parentId || null, reactions: [], createdAt: new Date().toISOString()
+    };
+    localCommentsCache.unshift(comment);
+    return res.status(201).json({ comment: { ...comment, reactions: {}, myReaction: null }, source: 'local-memory' });
+  } catch (error) {
+    console.error('Create comment error:', error);
+    return res.status(500).json({ message: 'Khong the gui binh luan.' });
+  }
+});
+
+app.put('/api/anime-comments/:id/react', async (req, res) => {
+  try {
+    const commentId = req.params.id;
+    const { emoji, userId, sessionId } = req.body;
+    const actorId = userId || sessionId || null;
+
+    if (!emoji || !actorId) return res.status(400).json({ message: 'Thieu emoji hoac userId.' });
+
+    if (isSqlReady()) {
+      const existing = await sqlPool
+        .request()
+        .input('CommentId', sql.Int, Number(commentId))
+        .input('UserId', sql.NVarChar(100), actorId)
+        .query('SELECT Emoji FROM dbo.CommentReactions WHERE CommentId = @CommentId AND UserId = @UserId');
+
+      const currentEmoji = existing.recordset[0]?.Emoji;
+
+      if (currentEmoji === emoji) {
+        await sqlPool.request()
+          .input('CommentId', sql.Int, Number(commentId))
+          .input('UserId', sql.NVarChar(100), actorId)
+          .query('DELETE FROM dbo.CommentReactions WHERE CommentId = @CommentId AND UserId = @UserId');
+      } else {
+        await sqlPool.request()
+          .input('CommentId', sql.Int, Number(commentId))
+          .input('UserId', sql.NVarChar(100), actorId)
+          .input('Emoji', sql.NVarChar(10), emoji)
+          .query(`
+            MERGE dbo.CommentReactions AS t
+            USING (SELECT @CommentId AS c, @UserId AS u) AS s ON t.CommentId = s.c AND t.UserId = s.u
+            WHEN MATCHED THEN UPDATE SET Emoji = @Emoji
+            WHEN NOT MATCHED THEN INSERT (CommentId, UserId, Emoji) VALUES (@CommentId, @UserId, @Emoji);
+          `);
+      }
+
+      const counts = await sqlPool.request()
+        .input('CommentId2', sql.Int, Number(commentId))
+        .query('SELECT Emoji, COUNT(*) AS cnt FROM dbo.CommentReactions WHERE CommentId = @CommentId2 GROUP BY Emoji');
+
+      const reactions = {};
+      for (const row of counts.recordset) reactions[row.Emoji] = row.cnt;
+      return res.json({ reactions, myReaction: currentEmoji === emoji ? null : emoji });
+    }
+
+    if (isMongoReady()) {
+      const doc = await Comment.findById(commentId);
+      if (!doc) return res.status(404).json({ message: 'Khong tim thay binh luan.' });
+
+      const idx = doc.reactions.findIndex((r) => r.userId === actorId);
+      if (idx >= 0 && doc.reactions[idx].emoji === emoji) {
+        doc.reactions.splice(idx, 1);
+      } else if (idx >= 0) {
+        doc.reactions[idx].emoji = emoji;
+      } else {
+        doc.reactions.push({ userId: actorId, emoji });
+      }
+      await doc.save();
+
+      const reactions = {};
+      for (const r of doc.reactions) reactions[r.emoji] = (reactions[r.emoji] || 0) + 1;
+      const myReaction = doc.reactions.find((r) => r.userId === actorId)?.emoji || null;
+      return res.json({ reactions, myReaction });
+    }
+
+    const c = localCommentsCache.find((x) => x.id === commentId);
+    if (c) {
+      if (!c.reactions) c.reactions = [];
+      const idx = c.reactions.findIndex((r) => r.userId === actorId);
+      if (idx >= 0 && c.reactions[idx].emoji === emoji) {
+        c.reactions.splice(idx, 1);
+      } else if (idx >= 0) {
+        c.reactions[idx].emoji = emoji;
+      } else {
+        c.reactions.push({ userId: actorId, emoji });
+      }
+    }
+    const target = localCommentsCache.find((x) => x.id === commentId);
+    const reactions = {};
+    for (const r of (target?.reactions || [])) reactions[r.emoji] = (reactions[r.emoji] || 0) + 1;
+    const myReaction = (target?.reactions || []).find((r) => r.userId === actorId)?.emoji || null;
+    return res.json({ reactions, myReaction });
+  } catch (error) {
+    console.error('React comment error:', error);
+    return res.status(500).json({ message: 'Khong the phan ung.' });
+  }
+});
+
 
 
 app.get('/api/auth/facebook', (req, res, next) => {

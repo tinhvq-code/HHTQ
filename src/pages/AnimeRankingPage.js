@@ -27,6 +27,30 @@ const toMangaRankingItem = (item, index) => ({
   img: item[3]
 });
 
+const seedShuffle = (arr, seed) => {
+  const result = [...arr];
+  let s = (seed ^ 0xdeadbeef) >>> 0;
+  for (let i = result.length - 1; i > 0; i--) {
+    s = Math.imul(s ^ (s >>> 16), 0x45d9f3b);
+    s = (s ^ (s >>> 16)) >>> 0;
+    const j = s % (i + 1);
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result.map((item, index) => ({ ...item, rank: index + 1 }));
+};
+
+const getTimeSeed = (filter) => {
+  const now = new Date();
+  if (filter === 'Tuần') {
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const weekNum = Math.ceil(((now - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+    return now.getFullYear() * 100 + weekNum;
+  }
+  if (filter === 'Tháng') return now.getFullYear() * 100 + now.getMonth();
+  if (filter === 'Năm') return now.getFullYear();
+  return 0;
+};
+
 export default function AnimeRankingPage() {
   const [tabIndex, setTabIndex] = useState(0);
   const [timeFilter, setTimeFilter] = useState('Ngày');
@@ -60,7 +84,8 @@ export default function AnimeRankingPage() {
     setTabIndex(newValue);
   };
 
-  const currentList = tabIndex === 0 ? state.anime : state.manga;
+  const rawList = tabIndex === 0 ? state.anime : state.manga;
+  const currentList = timeFilter === 'Ngày' ? rawList : seedShuffle(rawList, getTimeSeed(timeFilter));
   const openRankingItem = (item) => {
     if (tabIndex === 0) {
       window.localStorage.setItem(selectedAnimeKey, JSON.stringify(item));
@@ -90,7 +115,7 @@ export default function AnimeRankingPage() {
               BXH
             </Typography>
             <Typography sx={{ color: '#8f8f8f', fontSize: { xs: 10, md: 13 }, mt: 0.5 }}>
-              Anime có trailer và truyện tranh lấy trực tiếp từ API
+
             </Typography>
           </Box>
 

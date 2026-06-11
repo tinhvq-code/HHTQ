@@ -1,4 +1,4 @@
-﻿import { createElement, useEffect, useState } from 'react';
+﻿import { createElement, useEffect, useRef, useState } from 'react';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 import CakeOutlinedIcon from '@mui/icons-material/CakeOutlined';
@@ -50,6 +50,12 @@ const orange = '#ff9800';
 const bg = '#101010';
 const line = '#252525';
 const muted = '#8a8a8a';
+
+const go = (path) => {
+  if (!path) return;
+  window.location.href = path;
+};
+
 const assetPosters = [
   '/assets/anime-01.jpg',
   '/assets/anime-02.jpg',
@@ -101,8 +107,8 @@ const writeSavedVideoItems = (key, items) => {
 
 const videoItemToDetail = (item) => ({
   title: item?.[0] || '',
-  eps: item?.[1] || 'Táº­p má»›i',
-  views: item?.[2] || 'Äang cáº­p nháº­t lÆ°á»£t xem',
+  eps: item?.[1] || 'Tập mới nhất',
+  views: item?.[2] || 'Đang cập nhật lượt xem',
   img: item?.[3] || '',
   trailer: item?.[4] || null,
   genres: item?.[5] || []
@@ -257,8 +263,16 @@ function EmptyListMessage({ title = 'Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u', messa
     </Stack>
   );
 }
+const toDateInputValue = (dateStr) => {
+  if (!dateStr) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+  const m = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+};
+
 function ProfileAvatar({ profile, size = { xs: 66, md: 108 }, editable = false, onClick }) {
-  const avatarUrl = profile?.updated ? profile.avatar || '/assets/anime-05.jpg' : '';
+  const rawUrl = profile?.updated ? profile.avatar || '/assets/anime-05.jpg' : '';
+  const avatarUrl = rawUrl.startsWith('data:') ? rawUrl : (rawUrl ? poster(rawUrl, 140, 140) : '');
 
   return (
     <Box
@@ -271,7 +285,7 @@ function ProfileAvatar({ profile, size = { xs: 66, md: 108 }, editable = false, 
         borderRadius: 0.5,
         border: avatarUrl ? 0 : '1px solid #343434',
         bgcolor: avatarUrl ? 'transparent' : '#151515',
-        background: avatarUrl ? `url(${poster(avatarUrl, 140, 140)}) center/cover` : 'none',
+        background: avatarUrl ? `url(${avatarUrl}) center/cover` : 'none',
         cursor: onClick ? 'pointer' : 'default'
       }}
     >
@@ -582,7 +596,7 @@ export function SearchResultsPage() {
 
 export function SearchEmptyPage() {
   return (
-    <PhonePage title="TĂ¬m kiáº¿m">
+    <PhonePage title="Tìm kiếm">
       <Box sx={{ height: '100%', bgcolor: bg }}>
         <TopBar search />
         <Stack alignItems="center" sx={{ pt: 14, px: 3, textAlign: 'center' }}>
@@ -591,7 +605,7 @@ export function SearchEmptyPage() {
             <Box sx={{ position: 'absolute', right: 3, bottom: 10, width: 43, height: 43, borderRadius: '50%', border: `6px solid ${orange}` }} />
             <PlayArrowIcon sx={{ position: 'absolute', left: 41, top: 35, color: orange, fontSize: 29 }} />
           </Box>
-          <Typography sx={{ color: '#fff', fontSize: 13, fontWeight: 800, mt: 2.2 }}>KhĂ´ng tĂ¬m tháº¥y káº¿t quáº£</Typography>
+          <Typography sx={{ color: '#fff', fontSize: 13, fontWeight: 800, mt: 2.2 }}>Không tìm thấy kết quả</Typography>
           <Typography sx={{ color: '#d7d7d7', fontSize: 10.5, fontWeight: 700, mt: 1.5, lineHeight: 1.35 }}>
             Anime, truyện tranh.
           </Typography>
@@ -639,8 +653,13 @@ export function ProfilePage({ guest = false, language = false }) {
     fetchUserProfile(user.id)
       .then(({ profile: nextProfile }) => {
         if (ignore) return;
-        setUserProfileCache(nextProfile, profileOwner);
-        setProfile(nextProfile);
+        const cachedProfile = getUserProfileCache(profileOwner);
+        const mergedProfile = {
+          ...nextProfile,
+          avatar: nextProfile.avatar || cachedProfile?.avatar || ''
+        };
+        setUserProfileCache(mergedProfile, profileOwner);
+        setProfile((prev) => ({ ...prev, ...mergedProfile, avatar: mergedProfile.avatar || prev.avatar || '' }));
       })
       .catch(() => { });
 
@@ -728,24 +747,24 @@ function LanguageDialog() {
 export function EditProfilePage() {
   const user = getCurrentUser();
   const profile = getProfileInfo();
+  const fileInputRef = useRef(null);
   const [saveError, setSaveError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [values, setValues] = useState({
-    fullName: profile.updated && profile.fullName ? profile.fullName : '',
+    fullName: profile.fullName || user?.fullName || '',
     email: profile.email || user?.email || '',
-    phone: profile.updated && profile.phone ? profile.phone : '',
-    birthday: profile.updated && profile.birthday ? profile.birthday : '',
-    gender: profile.updated && profile.gender ? profile.gender : '',
-    avatar: profile.updated && profile.avatar ? profile.avatar : ''
+    phone: profile.phone || user?.phone || '',
+    birthday: toDateInputValue(profile.birthday || user?.birthday || ''),
+    gender: profile.gender || user?.gender || '',
+    avatar: profile.avatar || user?.avatar || ''
   });
   const fields = [
     ['fullName', 'Họ và tên', PersonOutlineIcon, 'text', 'Nhập họ và tên'],
     ['email', 'Email', MailOutlineIcon, 'email', 'Email', true],
     ['phone', 'Số điện thoại', PhoneOutlinedIcon, 'tel', 'Nhập số điện thoại'],
     ['birthday', 'Ngày sinh', CakeOutlinedIcon, 'date', ''],
-    ['gender', 'Giới tính', PersonOutlineIcon, 'select', 'Chọn giới tính'],
-    ['avatar', 'Ảnh đại diện', ImageOutlinedIcon, 'text', 'Dán đường dẫn ảnh đại diện']
+    ['gender', 'Giới tính', PersonOutlineIcon, 'select', 'Chọn giới tính']
   ];
 
   useEffect(() => {
@@ -759,14 +778,16 @@ export function EditProfilePage() {
     fetchUserProfile(user.id)
       .then(({ profile: nextProfile }) => {
         if (ignore) return;
-        setUserProfileCache(nextProfile, profileOwner);
+        const cachedProfile = getUserProfileCache(profileOwner);
+        const mergedAvatar = nextProfile.avatar || cachedProfile?.avatar || user?.avatar || '';
+        setUserProfileCache({ ...nextProfile, avatar: mergedAvatar }, profileOwner);
         setValues({
-          fullName: nextProfile.updated && nextProfile.fullName ? nextProfile.fullName : '',
+          fullName: nextProfile.fullName || user?.fullName || '',
           email: nextProfile.email || user?.email || '',
-          phone: nextProfile.updated && nextProfile.phone ? nextProfile.phone : '',
-          birthday: nextProfile.updated && nextProfile.birthday ? nextProfile.birthday : '',
-          gender: nextProfile.updated && nextProfile.gender ? nextProfile.gender : '',
-          avatar: nextProfile.updated && nextProfile.avatar ? nextProfile.avatar : ''
+          phone: nextProfile.phone || user?.phone || '',
+          birthday: toDateInputValue(nextProfile.birthday || user?.birthday || ''),
+          gender: nextProfile.gender || user?.gender || '',
+          avatar: mergedAvatar
         });
       })
       .catch(() => { });
@@ -782,6 +803,27 @@ export function EditProfilePage() {
     setValues((current) => ({ ...current, [name]: value }));
   };
 
+  const handleFileSelect = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 300;
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        setFieldValue('avatar', canvas.toDataURL('image/jpeg', 0.75));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  };
+
   const validateProfile = () => {
     const nextErrors = {};
 
@@ -791,10 +833,6 @@ export function EditProfilePage() {
 
     if (values.phone.trim() && !/^[0-9]{9,11}$/.test(values.phone.trim())) {
       nextErrors.phone = 'Số điện thoại phải có 9-11 chữ số.';
-    }
-
-    if (values.avatar.trim() && !/^(https?:\/\/|\/)/.test(values.avatar.trim())) {
-      nextErrors.avatar = 'Ảnh đại diện phải là URL hợp lệ hoặc đường dẫn nội bộ.';
     }
 
     setFieldErrors(nextErrors);
@@ -839,10 +877,23 @@ export function EditProfilePage() {
     <PhonePage title="Chỉnh sửa hồ sơ">
       <Box sx={{ height: '100%', bgcolor: bg }}>
         <TopBar title="Hồ sơ" />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handleFileSelect}
+        />
         <Stack alignItems="center" sx={{ pt: 2.5 }}>
-          <ProfileAvatar profile={{ ...profile, updated: Boolean(values.avatar), avatar: values.avatar }} size={70} editable />
+          <ProfileAvatar
+            profile={{ ...profile, updated: Boolean(values.avatar), avatar: values.avatar }}
+            size={70}
+            editable
+            onClick={() => fileInputRef.current?.click()}
+          />
+          <Typography sx={{ color: '#666', fontSize: 9.5, mt: 0.9 }}>Ấn vào ảnh để chọn từ máy</Typography>
         </Stack>
-        <Stack spacing={1.15} sx={{ px: 1.8, mt: 2.6 }}>
+        <Stack spacing={1.15} sx={{ px: 1.8, mt: 2.2 }}>
           {fields.map(([name, label, Icon, type, placeholder, disabled]) => (
             <Box key={name}>
               <Typography sx={{ color: '#8b8b8b', fontSize: 10.5, fontWeight: 600, mb: 0.55 }}>{label}</Typography>
@@ -890,6 +941,22 @@ export function EditProfilePage() {
               {fieldErrors[name] ? <Typography sx={{ color: '#ff8a80', fontSize: 10, fontWeight: 800, mt: 0.45 }}>{fieldErrors[name]}</Typography> : null}
             </Box>
           ))}
+          <Box>
+            <Typography sx={{ color: '#8b8b8b', fontSize: 10.5, fontWeight: 600, mb: 0.55 }}>Ảnh đại diện</Typography>
+            <Stack direction="row" alignItems="center" sx={{ minHeight: 34, px: 1, border: `1px solid ${fieldErrors.avatar ? '#ff8a80' : '#3a3a3a'}`, borderRadius: 0.5 }}>
+              {createElement(ImageOutlinedIcon, { sx: { fontSize: 16, color: '#898989', mr: 1 } })}
+              <Box
+                component="input"
+                type="text"
+                value={values.avatar.startsWith('data:') ? '' : values.avatar}
+                placeholder={values.avatar.startsWith('data:') ? 'Đã chọn ảnh từ máy' : 'Dán đường dẫn ảnh đại diện'}
+                onChange={(e) => setFieldValue('avatar', e.target.value)}
+                sx={{ flex: 1, minWidth: 0, border: 0, outline: 0, bgcolor: 'transparent', color: '#eee', fontSize: 10.5, fontWeight: 700, fontFamily: 'Roboto, Arial, sans-serif', '&::placeholder': { color: values.avatar.startsWith('data:') ? '#ff9800' : '#666' } }}
+              />
+            </Stack>
+            {fieldErrors.avatar ? <Typography sx={{ color: '#ff8a80', fontSize: 10, fontWeight: 800, mt: 0.45 }}>{fieldErrors.avatar}</Typography> : null}
+          </Box>
+
           {saveError ? <Typography sx={{ color: '#ff8a80', fontSize: 10.5, fontWeight: 800 }}>{saveError}</Typography> : null}
           <Button disabled={isSaving} onClick={saveProfile} fullWidth variant="contained" sx={{ mt: 1.9, height: 36, bgcolor: orange, boxShadow: 'none', borderRadius: 0.5, fontSize: 11, fontWeight: 800, '&:hover': { bgcolor: orange, boxShadow: 'none' }, '&.Mui-disabled': { bgcolor: '#5f3f12', color: '#aaa' } }}>
             {isSaving ? 'Đang lưu...' : 'Lưu'}
@@ -899,10 +966,34 @@ export function EditProfilePage() {
     </PhonePage>
   );
 }
+const getDateLabel = (isoDate) => {
+  if (!isoDate) return 'Trước đó';
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return 'Trước đó';
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const itemDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffDays = Math.round((today - itemDay) / 86400000);
+  if (diffDays === 0) return 'Hôm nay';
+  if (diffDays === 1) return 'Hôm qua';
+  const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+  if (diffDays < 7) return dayNames[d.getDay()];
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+};
+
+const groupHistoryByDate = (items) => {
+  const groups = new Map();
+  for (const item of items) {
+    const label = getDateLabel(item[6]);
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label).push(item);
+  }
+  return [...groups.entries()];
+};
+
 export function HistoryPage({ actions = false }) {
   const watchedItems = readSavedVideoItems(watchedAnimeKey);
-  const todayItems = watchedItems.slice(0, Math.ceil(watchedItems.length / 2));
-  const olderItems = watchedItems.slice(todayItems.length);
+  const dateGroups = groupHistoryByDate(watchedItems);
 
   return (
     <PhonePage title="Lịch sử xem">
@@ -913,17 +1004,19 @@ export function HistoryPage({ actions = false }) {
             <SearchBox placeholder="Tìm kiếm video đã xem..." onClick={() => window.alert('Tìm trong lịch sử xem')} />
             {watchedItems.length > 0 ? (
               <>
-                <Typography sx={{ color: '#bdbdbd', fontSize: 11.3, fontWeight: 800, mt: 1.4, mb: 0.9 }}>HĂ´m nay</Typography>
-                <Stack spacing={1.15}>{todayItems.map((item) => <VideoRow key={`${item[0]}-${item[1]}`} item={item} onMore={() => go('/history-actions')} />)}</Stack>
-                {olderItems.length > 0 && (
-                  <>
-                    <Typography sx={{ color: '#bdbdbd', fontSize: 11.3, fontWeight: 800, mt: 1.7, mb: 0.9 }}>TrÆ°á»›c Ä‘Ă³</Typography>
-                    <Stack spacing={1.15}>{olderItems.map((item) => <VideoRow key={`${item[0]}-${item[1]}`} item={item} onMore={() => go('/history-actions')} />)}</Stack>
-                  </>
-                )}
+                {dateGroups.map(([label, groupItems]) => (
+                  <Box key={label}>
+                    <Typography sx={{ color: '#bdbdbd', fontSize: 11.3, fontWeight: 800, mt: 1.4, mb: 0.9 }}>{label}</Typography>
+                    <Stack spacing={1.15}>
+                      {groupItems.map((item) => (
+                        <VideoRow key={`${item[0]}-${item[1]}-${item[6] || ''}`} item={item} onMore={() => go('/history-actions')} />
+                      ))}
+                    </Stack>
+                  </Box>
+                ))}
               </>
             ) : (
-              <EmptyListMessage title="Lịch sử xem" message="Phim bạn đã xem ." />
+              <EmptyListMessage title="Lịch sử xem" message="Phim bạn đã xem sẽ xuất hiện tại đây." />
             )}
           </Box>
         </Box>
@@ -1078,7 +1171,7 @@ export function FeedbackFormPage() {
         content: text.trim()
       });
       setText('');
-      setMessage('ÄĂ£ gá»­i pháº£n há»“i.');
+      setMessage('Đã gửi phản hồi.');
     } catch (error) {
       setMessage(error?.message || 'Không thể gửi phản hồi.');
     }

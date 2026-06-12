@@ -15,6 +15,7 @@ import PhoneFrame from '../components/PhoneFrame.js';
 import { fetchHomeAnime } from '../services/animeApi.js';
 import { getSessionUser } from '../services/authSession.js';
 import logoUrl from '../../logo.jpg';
+import { fetchNewsList } from '../services/userApi.js'; // <-- Gọi API lấy tin tức thật nè
 
 const selectedAnimeKey = 'selectedAnimeDetail';
 const selectedMangaKey = 'selectedMangaDetail';
@@ -139,9 +140,7 @@ const STATIC_NEWS = [
   ['Đấu La Đại Lục tung hình ảnh hồn kỹ mới', 'Tin tức Anime / 4 giờ trước', '821k lượt xem', '/assets/hq720.jpg'],
   ['Lưỡng Bất Nghi trở lại với bản dựng 2D sắc nét', 'Tin tức Anime / 6 giờ trước', '276k lượt xem', '/assets/6-Luong-Bat-Nghi-No-Doubt-in-Us-Liang-Bu-Yi-2021.jpg'],
   ['Thiếu Niên Ca Hành hé lộ poster nhân vật mới', 'Tin tức Anime / 12 giờ trước', '533k lượt xem', '/assets/harper-bazaar-nhung-bo-phim-anime-trung-quoc-hay-14-e1665242615423.jpg'],
-  ['Mục Thần Ký công bố lịch phát sóng mới', 'Tin tức Anime / 2 giờ trước', '492k lượt xem', '/assets/Muc-Than-Ky-12-hh3d.jpg'],
-  ['Thần Mộ tung poster nhân vật chính', 'Tin tức Anime / 5 giờ trước', '638k lượt xem', '/assets/than-mo-800x1200.jpg'],
-  ['Đại Chúa Tể hé lộ trận chiến tại Linh Lộ', 'Tin tức Anime / 9 giờ trước', '579k lượt xem', '/assets/phim-anime-trung-quoc-14.jpg']
+  ['Mục Thần Ký công bố lịch phát sóng mới', 'Tin tức Anime / 2 giờ trước', '492k lượt xem', '/assets/Muc-Than-Ky-12-hh3d.jpg']
 ];
 
 const STATIC_MANGA = [
@@ -456,6 +455,9 @@ function MenuPage() {
   const [apiError, setApiError] = useState('');
   const [animePage, setAnimePage] = useState(1);
   const [mangaPage, setMangaPage] = useState(1);
+  
+  // TIN TỨC TỪ DATABASE
+  const [newsList, setNewsList] = useState([]);
 
   useEffect(() => {
     const sectionId = window.location.hash.replace('#', '');
@@ -470,6 +472,7 @@ function MenuPage() {
   useEffect(() => {
     let ignore = false;
 
+    // Gọi API trang chủ phim
     fetchHomeAnime()
       .then((nextData) => {
         if (!ignore) {
@@ -484,6 +487,15 @@ function MenuPage() {
           setApiError('');
         }
       });
+
+    // GỌI THÊM API TIN TỨC VÀ ĐỔ VÀO STATE
+    fetchNewsList()
+      .then((data) => {
+        if (!ignore && data?.news) {
+          setNewsList(data.news);
+        }
+      })
+      .catch(() => {});
 
     return () => {
       ignore = true;
@@ -515,8 +527,14 @@ function MenuPage() {
   };
 
   const openNews = (item) => {
-    const [title, meta, views, img] = item;
-    window.localStorage.setItem(selectedNewsKey, JSON.stringify({ title, meta, views, img }));
+    if (item.id) {
+      // Dữ liệu mới có ID thì lưu ID
+      window.localStorage.setItem('selectedNewsId', item.id);
+    } else {
+      // Đề phòng còn dính dữ liệu cũ
+      const [title, meta, views, img] = item;
+      window.localStorage.setItem(selectedNewsKey, JSON.stringify({ title, meta, views, img }));
+    }
     go('/news-detail');
   };
 
@@ -542,6 +560,7 @@ function MenuPage() {
   const mangaTotalPages = Math.max(1, Math.ceil(homeData.manga.length / MANGA_PAGE_SIZE));
   const activeMangaPage = Math.min(mangaPage, mangaTotalPages);
   const pagedManga = homeData.manga.slice((activeMangaPage - 1) * MANGA_PAGE_SIZE, activeMangaPage * MANGA_PAGE_SIZE);
+  
   const changeAnimePage = (nextPage) => {
     setAnimePage(nextPage);
     window.setTimeout(() => {
@@ -554,6 +573,9 @@ function MenuPage() {
       document.getElementById('manga')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 40);
   };
+
+  // Ưu tiên hiển thị tin từ Database, nếu chưa kịp load thì hiển thị 5 bài báo mẫu
+  const displayNews = newsList.length > 0 ? newsList.slice(0, 5) : [];
 
   return (
     <PageShell title="Menu">
@@ -627,20 +649,35 @@ function MenuPage() {
           <Box id="news" sx={{ px: { xs: 1.4, md: 3 }, py: { xs: 1.4, md: 3 }, borderTop: '1px solid #242424', scrollMarginTop: { xs: 56, md: 84 } }}>
             <SectionTitle>Tin anime</SectionTitle>
             <Stack spacing={{ xs: 1.2, md: 2 }}>
-              {homeData.news.map((item) => (
-                <Stack key={`${item[0]}-${item[3]}`} direction="row" spacing={{ xs: 1.1, md: 2 }} onClick={() => openNews(item)} sx={{ cursor: 'pointer' }}>
-                  <Box sx={{ width: { xs: 84, md: 160 }, height: { xs: 56, md: 100 }, flexShrink: 0, borderRadius: 1.2, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.16)', bgcolor: '#181818', boxShadow: '0 12px 24px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12)' }}>
-                    <Box component="img" src={poster(item[3], 420, 260)} alt={item[0]} loading="lazy" sx={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover', filter: 'contrast(1.1) saturate(1.14) brightness(1.03)' }} />
-                  </Box>
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ color: '#fff', fontSize: { xs: 11.5, md: 16 }, fontWeight: 800, lineHeight: 1.2 }}>{item[0]}</Typography>
-                    <Typography sx={{ color: '#f59a23', fontSize: { xs: 9.5, md: 13 }, fontWeight: 700, mt: 0.45 }}>{item[1]}</Typography>
-                    <Typography sx={{ color: '#aaa', fontSize: { xs: 9.5, md: 13 }, mt: 0.35 }}>{item[2]}</Typography>
-                  </Box>
-                </Stack>
-              ))}
+              {displayNews.length > 0 ? (
+                displayNews.map((item) => (
+                  <Stack key={item.id} direction="row" spacing={{ xs: 1.1, md: 2 }} onClick={() => openNews(item)} sx={{ cursor: 'pointer' }}>
+                    <Box sx={{ width: { xs: 84, md: 160 }, height: { xs: 56, md: 100 }, flexShrink: 0, borderRadius: 1.2, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.16)', bgcolor: '#181818', boxShadow: '0 12px 24px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12)' }}>
+                      <Box component="img" src={item.img || poster('', 420, 260)} alt={item.title} loading="lazy" sx={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover', filter: 'contrast(1.1) saturate(1.14) brightness(1.03)' }} />
+                    </Box>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography sx={{ color: '#fff', fontSize: { xs: 11.5, md: 16 }, fontWeight: 800, lineHeight: 1.2 }}>{item.title}</Typography>
+                      <Typography sx={{ color: '#f59a23', fontSize: { xs: 9.5, md: 13 }, fontWeight: 700, mt: 0.45 }}>{item.tag} / {item.time}</Typography>
+                      <Typography sx={{ color: '#aaa', fontSize: { xs: 9.5, md: 13 }, mt: 0.35 }}>{item.views}</Typography>
+                    </Box>
+                  </Stack>
+                ))
+              ) : (
+                homeData.news.slice(0, 5).map((item) => (
+                  <Stack key={`${item[0]}-${item[3]}`} direction="row" spacing={{ xs: 1.1, md: 2 }} onClick={() => openNews(item)} sx={{ cursor: 'pointer' }}>
+                    <Box sx={{ width: { xs: 84, md: 160 }, height: { xs: 56, md: 100 }, flexShrink: 0, borderRadius: 1.2, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.16)', bgcolor: '#181818', boxShadow: '0 12px 24px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12)' }}>
+                      <Box component="img" src={poster(item[3], 420, 260)} alt={item[0]} loading="lazy" sx={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover', filter: 'contrast(1.1) saturate(1.14) brightness(1.03)' }} />
+                    </Box>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography sx={{ color: '#fff', fontSize: { xs: 11.5, md: 16 }, fontWeight: 800, lineHeight: 1.2 }}>{item[0]}</Typography>
+                      <Typography sx={{ color: '#f59a23', fontSize: { xs: 9.5, md: 13 }, fontWeight: 700, mt: 0.45 }}>{item[1]}</Typography>
+                      <Typography sx={{ color: '#aaa', fontSize: { xs: 9.5, md: 13 }, mt: 0.35 }}>{item[2]}</Typography>
+                    </Box>
+                  </Stack>
+                ))
+              )}
             </Stack>
-            <ShowMore />
+            <ShowMore path="/news-menu" />
           </Box>
 
           <Box id="manga" sx={{ px: { xs: 1.4, md: 3 }, py: { xs: 1.4, md: 3 }, borderTop: '1px solid #242424', scrollMarginTop: { xs: 56, md: 84 } }}>

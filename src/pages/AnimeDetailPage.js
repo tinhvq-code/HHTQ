@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { Box, Typography, IconButton, Button, Divider, Chip } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PlayCircleOutlinedIcon from '@mui/icons-material/PlayCircleOutlined';
@@ -9,6 +9,8 @@ import BookmarkIcon from '@mui/icons-material/Bookmark';
 import ReplyIcon from '@mui/icons-material/Reply';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ThumbUpAltOutlinedIcon from '@mui/icons-material/ThumbUpAltOutlined';
+import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
 import { useNavigate } from 'react-router-dom';
 import PageShell from '../components/PageShell.js';
 import PhoneFrame from '../components/PhoneFrame.js';
@@ -17,6 +19,7 @@ import { readUserList, writeUserList, getSessionUser } from '../services/authSes
 import { fetchYouTubeVideoData } from '../services/youtubeApi.js';
 import { fetchAnimeComments, postAnimeComment, reactToComment } from '../services/userApi.js';
 import { BottomNav } from './AnimeMockPages.js';
+import { getT } from '../services/i18n.js';
 
 const REACTION_EMOJIS = ['❤️', '😂', '😮', '😢', '😡', '👍'];
 
@@ -33,6 +36,56 @@ const selectedAnimeKey = 'selectedAnimeDetail';
 const watchedAnimeKey = 'watchedAnimeItems';
 const favoriteAnimeKey = 'favoriteAnimeItems';
 const followedAnimeKey = 'followedAnimeItems';
+const animeRatingsKey = 'animeRatingItems';
+
+const getRatingScore = (seed = '', index = 0) => {
+  const total = String(seed || 'anime').split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return Number((4.1 + ((total + index * 7) % 9) / 10).toFixed(1));
+};
+
+const readAnimeRatings = () => {
+  try {
+    const items = JSON.parse(window.localStorage.getItem(animeRatingsKey));
+    return items && typeof items === 'object' ? items : {};
+  } catch {
+    return {};
+  }
+};
+
+const ratingKeyFor = (title, actorId) => `${title || 'anime'}::${actorId || 'guest'}`;
+
+const readAnimeRating = (title, actorId) => {
+  const items = readAnimeRatings();
+  return items[ratingKeyFor(title, actorId)] || 0;
+};
+
+const writeAnimeRating = (title, actorId, rating) => {
+  const items = readAnimeRatings();
+  window.localStorage.setItem(animeRatingsKey, JSON.stringify({ ...items, [ratingKeyFor(title, actorId)]: rating }));
+};
+
+function StarRating({ value, size = { xs: 14, md: 18 }, interactive = false, onRate }) {
+  const rounded = Math.round(Number(value || 0));
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.15 }}>
+      {[1, 2, 3, 4, 5].map((star) => {
+        const Icon = star <= rounded ? StarIcon : StarBorderIcon;
+        return (
+          <Icon
+            key={star}
+            onClick={() => interactive && onRate?.(star)}
+            sx={{
+              fontSize: size,
+              color: star <= rounded ? '#ffb300' : '#666',
+              cursor: interactive ? 'pointer' : 'default'
+            }}
+          />
+        );
+      })}
+    </Box>
+  );
+}
 
 const episodes = [
   { id: 1, title: 'Tập 1', views: '432K lượt xem', img: 'https://placehold.co/120x80/2a2a2a/FFF?text=Tap+1' },
@@ -47,7 +100,8 @@ const fallbackAnime = {
   views: '522.000 lượt xem',
   img: 'https://placehold.co/600x337/333/FFF?text=Anime',
   trailer: null,
-  genres: []
+  genres: [],
+  rating: 4.5
 };
 
 const toAnimeDetail = (item) => ({
@@ -56,7 +110,8 @@ const toAnimeDetail = (item) => ({
   eps: item?.eps || item?.[2] || fallbackAnime.eps,
   img: item?.img || item?.[3] || fallbackAnime.img,
   trailer: item?.trailer || item?.[4] || null,
-  genres: item?.genres || item?.[5] || []
+  genres: item?.genres || item?.[5] || [],
+  rating: typeof item?.rating === 'number' ? item.rating : (typeof item?.[6] === 'number' ? item[6] : getRatingScore(item?.title || item?.[0] || fallbackAnime.title))
 });
 
 const toRecommendedAnime = (item, index) => ({
@@ -66,7 +121,8 @@ const toRecommendedAnime = (item, index) => ({
   eps: item[2],
   img: item[3],
   trailer: item[4] || null,
-  genres: item[5] || []
+  genres: item[5] || [],
+  rating: typeof item?.[6] === 'number' ? item[6] : getRatingScore(item[0], index)
 });
 
 const toTopAnimeItem = (item, index) => ({
@@ -77,7 +133,8 @@ const toTopAnimeItem = (item, index) => ({
   views: item[2],
   img: item[3],
   trailer: item[4] || null,
-  genres: item[5] || []
+  genres: item[5] || [],
+  rating: typeof item?.[6] === 'number' ? item[6] : getRatingScore(item[0], index)
 });
 
 const trailerUrl = (trailer) => {
@@ -108,6 +165,7 @@ const toStoredVideoItem = (item) => [
   item.img,
   item.trailer || null,
   item.genres || [],
+  typeof item.rating === 'number' ? item.rating : getRatingScore(item.title),
   new Date().toISOString()
 ];
 
@@ -157,8 +215,12 @@ const rememberWatchedAnime = (anime) => {
 };
 
 export default function AnimeDetailPage() {
+  const t = getT();
   const navigate = useNavigate();
   const scrollRef = useRef(null);
+  const sessionId = getCommentSessionId();
+  const sessionUser = getSessionUser();
+  const ratingActorId = sessionUser?.id || sessionUser?.email || sessionId;
   const [viewMode, setViewMode] = useState('trailer');
   const [anime, setAnime] = useState(readSelectedAnime);
   const [recommendedAnime, setRecommendedAnime] = useState([]);
@@ -168,6 +230,8 @@ export default function AnimeDetailPage() {
   const [commentText, setCommentText] = useState('');
   const [isLiked, setIsLiked] = useState(() => hasStoredAnime(favoriteAnimeKey, readSelectedAnime().title));
   const [isFollowed, setIsFollowed] = useState(() => hasStoredAnime(followedAnimeKey, readSelectedAnime().title));
+  const [userRating, setUserRating] = useState(() => readAnimeRating(readSelectedAnime().title, ratingActorId));
+  const [pendingRating, setPendingRating] = useState(() => readAnimeRating(readSelectedAnime().title, ratingActorId));
   const [notice, setNotice] = useState('');
   const [comments, setComments] = useState([]);
   const [commentLoading, setCommentLoading] = useState(false);
@@ -179,7 +243,7 @@ export default function AnimeDetailPage() {
   const [expandedReplies, setExpandedReplies] = useState({});
   const [likedComments, setLikedComments] = useState(new Set());
   const [homePage, setHomePage] = useState(1);
-  const sessionId = getCommentSessionId();
+  const displayRating = typeof anime.rating === 'number' ? anime.rating : getRatingScore(anime.title);
 
   useEffect(() => {
     let ignore = false;
@@ -232,9 +296,12 @@ export default function AnimeDetailPage() {
   useEffect(() => {
     setIsLiked(hasStoredAnime(favoriteAnimeKey, anime.title));
     setIsFollowed(hasStoredAnime(followedAnimeKey, anime.title));
+    const savedRating = readAnimeRating(anime.title, ratingActorId);
+    setUserRating(savedRating);
+    setPendingRating(savedRating);
     scrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
     window.scrollTo({ top: 0, behavior: 'auto' });
-  }, [anime.title]);
+  }, [anime.title, ratingActorId, sessionId]);
 
   useEffect(() => {
     if (!anime.title) return undefined;
@@ -249,7 +316,7 @@ export default function AnimeDetailPage() {
         setComments(
           (loaded || []).map((c) => ({
             id: String(c.id || c._id || c.createdAt),
-            name: c.userName || c.name || 'An danh',
+            name: c.userName || c.name || 'Ẩn danh',
             text: c.content || c.text || '',
             parentId: c.parentId ? String(c.parentId) : null,
             reactions: c.reactions || {},
@@ -268,7 +335,7 @@ export default function AnimeDetailPage() {
     return () => {
       ignore = true;
     };
-  }, [anime.title]);
+  }, [anime.title, sessionId]);
 
   const episodeItems = episodes.map((episode) => ({
     ...episode,
@@ -278,6 +345,7 @@ export default function AnimeDetailPage() {
   const tags = [anime.title, `${anime.title} Vietsub`, `${anime.title} HD`, anime.eps];
   const genreText = anime.genres?.length ? anime.genres.join(', ') : 'Đang cập nhật';
   const activeTrailerUrl = trailerUrl(anime.trailer);
+  const youtubeNotice = youtubeData?.title || youtubeError;
 
   useEffect(() => {
     if (viewMode === 'trailer' && activeTrailerUrl) {
@@ -300,10 +368,11 @@ export default function AnimeDetailPage() {
   const showEpisodes = () => {
     rememberWatchedAnime(anime);
     setViewMode('episodes');
+    setActiveTab('episodes');
   };
   const watchEpisode = () => {
     rememberWatchedAnime(anime);
-    showNotice('Đã lưu vào lịch sử xem');
+    showNotice(t.savedToHistory);
   };
   const showNotice = (text) => {
     setNotice(text);
@@ -312,12 +381,12 @@ export default function AnimeDetailPage() {
   const likeAnime = () => {
     const active = toggleStoredAnime(favoriteAnimeKey, anime);
     setIsLiked(active);
-    showNotice(active ? 'Đã thêm vào phim đã thích' : 'Đã hủy thích phim');
+    showNotice(active ? t.addedToFavorites : t.removedFromFavorites);
   };
   const followAnime = () => {
     const active = toggleStoredAnime(followedAnimeKey, anime);
     setIsFollowed(active);
-    showNotice(active ? 'Đã thêm vào phim đã theo dõi' : 'Đã hủy theo dõi phim');
+    showNotice(active ? t.addedToFollowed : t.removedFromFollowed);
   };
   const shareAnime = async () => {
     const shareData = {
@@ -329,15 +398,29 @@ export default function AnimeDetailPage() {
     try {
       if (navigator.share) {
         await navigator.share(shareData);
-        showNotice('Đã mở chia sẻ phim');
+        showNotice(t.sharedMovie);
         return;
       }
 
       await navigator.clipboard.writeText(shareData.url);
-      showNotice('Đã copy link phim');
+      showNotice(t.copiedLink);
     } catch {
-      showNotice('Chưa thể chia sẻ phim');
+      showNotice(t.cannotShare);
     }
+  };
+  const rateAnime = (rating) => {
+    setPendingRating(rating);
+    showNotice(`Đã chọn ${rating} sao. Bấm xác nhận để lưu.`);
+  };
+  const confirmRating = () => {
+    if (!pendingRating) {
+      showNotice('Vui lòng chọn số sao trước khi xác nhận');
+      return;
+    }
+
+    writeAnimeRating(anime.title, ratingActorId, pendingRating);
+    setUserRating(pendingRating);
+    showNotice(userRating ? `Đã sửa đánh giá thành ${pendingRating} sao` : `Đã xác nhận đánh giá ${pendingRating} sao`);
   };
   const openRecommendedAnime = (item) => {
     window.localStorage.setItem(selectedAnimeKey, JSON.stringify(item));
@@ -348,7 +431,7 @@ export default function AnimeDetailPage() {
     const user = getSessionUser();
     return {
       id: `local-${Date.now()}`,
-      name: user?.fullName || 'Ban',
+      name: user?.fullName || 'Bạn',
       text,
       parentId,
       reactions: {},
@@ -372,7 +455,7 @@ export default function AnimeDetailPage() {
       const { comment } = await postAnimeComment({
         animeTitle: anime.title,
         userId: user?.id || null,
-        userName: user?.fullName || 'Ban',
+        userName: user?.fullName || 'Bạn',
         avatar: user?.avatar || '',
         content: text,
         sessionId
@@ -386,7 +469,7 @@ export default function AnimeDetailPage() {
       );
     } catch (err) {
       if (err?.message?.includes('gioi han') || err?.message?.includes('429') || String(err?.message).toLowerCase().includes('limit')) {
-        setCommentError('Ban da dat gioi han 3 binh luan trong 1 gio. Vui long cho them.');
+        setCommentError('Bạn đã đạt giới hạn 3 bình luận trong 1 ngày. Vui lòng thử lại ngày mai.');
         setComments((prev) => prev.filter((c) => c.id !== optimistic.id));
       }
     }
@@ -408,7 +491,7 @@ export default function AnimeDetailPage() {
       const { comment } = await postAnimeComment({
         animeTitle: anime.title,
         userId: user?.id || null,
-        userName: user?.fullName || 'Ban',
+        userName: user?.fullName || 'Bạn',
         avatar: user?.avatar || '',
         content: `@${parentName} ${text}`,
         parentId,
@@ -423,13 +506,13 @@ export default function AnimeDetailPage() {
       );
     } catch (err) {
       if (err?.message?.includes('gioi han') || err?.message?.includes('429') || String(err?.message).toLowerCase().includes('limit')) {
-        setCommentError('Ban da dat gioi han 3 binh luan trong 1 gio. Vui long cho them.');
+        setCommentError('Bạn đã đạt giới hạn 3 bình luận trong 1 ngày. Vui lòng thử lại ngày mai.');
         setComments((prev) => prev.filter((c) => c.id !== optimistic.id));
       }
     }
   };
 
-  const handleReact = async (commentId, emoji) => {
+  const _handleReact = async (commentId, emoji) => {
     const user = getSessionUser();
     const actorId = user?.id || sessionId;
 
@@ -497,15 +580,24 @@ export default function AnimeDetailPage() {
                 <>
                   <img src={anime.img} alt={anime.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
-                    <PlayCircleOutlinedIcon sx={{ fontSize: { xs: 38, md: 52 }, color: 'rgba(255,255,255,0.8)' }} />
+                  <PlayCircleOutlinedIcon sx={{ fontSize: { xs: 38, md: 52 }, color: 'rgba(255,255,255,0.8)' }} />
                   </Box>
                 </>
               )}
+              <Box sx={{ position: 'absolute', right: 8, bottom: 8, display: 'flex', alignItems: 'center', gap: 0.4, px: 0.7, py: 0.25, borderRadius: 0.7, bgcolor: 'rgba(0,0,0,0.72)', color: '#fff' }}>
+                <StarIcon sx={{ fontSize: { xs: 13, md: 17 }, color: '#ffb300' }} />
+                <Typography sx={{ fontSize: { xs: 9.5, md: 12.5 }, fontWeight: 900 }}>{Number(displayRating).toFixed(1)}</Typography>
+              </Box>
             </Box>
           </Box>
 
             <Box sx={{ px: { xs: 1.4, md: 3 }, py: { xs: 1.3, md: 2.4 } }}>
             <Typography sx={{ fontWeight: 800, fontSize: { xs: 15, md: 22 }, mb: 0.35 }}>{anime.title} - {anime.eps}</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 0.5 }}>
+              <StarRating value={displayRating} />
+              <Typography sx={{ color: '#ffb300', fontSize: { xs: 10, md: 13 }, fontWeight: 900 }}>{Number(displayRating).toFixed(1)}/5</Typography>
+              <Typography sx={{ color: '#777', fontSize: { xs: 9, md: 12 }, fontWeight: 700 }}>{t.movieScore}</Typography>
+            </Box>
             <Typography sx={{ color: '#aaa', fontSize: { xs: 10.5, md: 14 }, mb: { xs: 1.2, md: 2 } }}>{anime.views}</Typography>
             {notice && (
               <Typography sx={{ color: '#ff9800', fontSize: { xs: 10.5, md: 13 }, fontWeight: 800, mb: 1 }}>
@@ -515,21 +607,34 @@ export default function AnimeDetailPage() {
 
             <Box sx={{ display: 'flex', gap: { xs: 0.5, md: 1.2 }, mb: { xs: 1.2, md: 2 }, overflowX: 'auto', scrollbarWidth: 'none' }}>
               <Button onClick={likeAnime} size="small" startIcon={isLiked ? <FavoriteIcon /> : <FavoriteBorderIcon />} sx={{ color: isLiked ? '#ff9800' : '#aaa', textTransform: 'none', minHeight: '28px !important', px: 0.7, fontSize: { xs: 9.5, md: 13 }, whiteSpace: 'nowrap' }}>
-                {isLiked ? 'Đã thích' : 'Thích'}
+                {isLiked ? t.liked : t.like}
               </Button>
               <Button onClick={followAnime} size="small" startIcon={isFollowed ? <BookmarkIcon /> : <BookmarkBorderIcon />} sx={{ color: isFollowed ? '#ff9800' : '#aaa', textTransform: 'none', minHeight: '28px !important', px: 0.7, fontSize: { xs: 9.5, md: 13 }, whiteSpace: 'nowrap' }}>
-                {isFollowed ? 'Đã theo dõi' : 'Theo dõi'}
+                {isFollowed ? t.followed : t.follow}
               </Button>
               <Button onClick={shareAnime} size="small" startIcon={<ReplyIcon sx={{ transform: 'scaleX(-1)' }} />} sx={{ color: '#aaa', textTransform: 'none', minHeight: '28px !important', px: 0.7, fontSize: { xs: 9.5, md: 13 }, whiteSpace: 'nowrap' }}>
-                Chia sẻ
+                {t.share}
               </Button>
             </Box>
+            <Box sx={{ display: 'flex', gap: { xs: 0.7, md: 1 }, mb: { xs: 1.2, md: 1.8 } }}>
+              <Button onClick={showTrailer} size="small" variant={viewMode === 'trailer' ? 'contained' : 'text'} sx={{ bgcolor: viewMode === 'trailer' ? '#252525' : 'transparent', color: viewMode === 'trailer' ? '#ff9800' : '#aaa', border: `1px solid ${viewMode === 'trailer' ? '#ff9800' : '#303030'}`, boxShadow: 'none', textTransform: 'none', minHeight: '30px !important', px: 1.5, fontSize: { xs: 10, md: 13 }, whiteSpace: 'nowrap', '&:hover': { bgcolor: '#252525', boxShadow: 'none' } }}>
+                {t.trailer}
+              </Button>
+              <Button onClick={showEpisodes} size="small" variant={viewMode === 'episodes' ? 'contained' : 'text'} sx={{ bgcolor: viewMode === 'episodes' ? '#252525' : 'transparent', color: viewMode === 'episodes' ? '#ff9800' : '#aaa', border: `1px solid ${viewMode === 'episodes' ? '#ff9800' : '#303030'}`, boxShadow: 'none', textTransform: 'none', minHeight: '30px !important', px: 1.5, fontSize: { xs: 10, md: 13 }, whiteSpace: 'nowrap', '&:hover': { bgcolor: '#252525', boxShadow: 'none' } }}>
+                {t.episodeTab}
+              </Button>
+            </Box>
+            {youtubeNotice && (
+              <Typography sx={{ color: youtubeError ? '#ffb74d' : '#777', fontSize: { xs: 9, md: 12 }, fontWeight: 700, mb: 1 }}>
+                {youtubeNotice}
+              </Typography>
+            )}
 
             {/* Tab bar */}
             <Box sx={{ display: 'flex', borderBottom: '1px solid #1e1e1e', mt: { xs: 0.6, md: 1 } }}>
               {[
-                { key: 'episodes', label: 'Danh sách tập' },
-                { key: 'comments', label: `${comments.filter((c) => !c.parentId).length} Bình luận` }
+                { key: 'episodes', label: t.episodeList },
+                { key: 'comments', label: `${comments.filter((c) => !c.parentId).length} ${t.commentTab}` }
               ].map(({ key, label }) => (
                 <Box
                   key={key}
@@ -569,13 +674,13 @@ export default function AnimeDetailPage() {
                   ))}
                 </Box>
 
-                <Typography sx={{ fontWeight: 'bold', fontSize: { xs: 12.5, md: 16 }, mb: 0.8 }}>THÔNG TIN PHIM</Typography>
-                <Typography sx={{ color: '#aaa', fontSize: { xs: 10, md: 13 }, mb: 0.4 }}>Thể loại: {genreText}</Typography>
-                <Typography sx={{ color: '#aaa', fontSize: { xs: 10, md: 13 }, mb: 0.4 }}>Nhóm sub: Phim1080</Typography>
-                <Typography sx={{ color: '#aaa', fontSize: { xs: 10, md: 13 }, mb: 1.2 }}>Tổng số tập: {anime.eps}</Typography>
+                <Typography sx={{ fontWeight: 'bold', fontSize: { xs: 12.5, md: 16 }, mb: 0.8 }}>{t.movieInfo}</Typography>
+                <Typography sx={{ color: '#aaa', fontSize: { xs: 10, md: 13 }, mb: 0.4 }}>{t.genreLabel}: {genreText}</Typography>
+                <Typography sx={{ color: '#aaa', fontSize: { xs: 10, md: 13 }, mb: 0.4 }}>{t.subGroup}: Phim1080</Typography>
+                <Typography sx={{ color: '#aaa', fontSize: { xs: 10, md: 13 }, mb: 1.2 }}>{t.totalEpisodes}: {anime.eps}</Typography>
 
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
-                  <Typography sx={{ color: '#aaa', mr: 0.5, alignSelf: 'center', fontSize: { xs: 10, md: 13 } }}>Từ khóa:</Typography>
+                  <Typography sx={{ color: '#aaa', mr: 0.5, alignSelf: 'center', fontSize: { xs: 10, md: 13 } }}>{t.keywords}:</Typography>
                   {tags.map((tag) => (
                     <Chip key={tag} label={tag} size="small" sx={{ backgroundColor: '#222', color: '#aaa', height: { xs: 22, md: 28 }, fontSize: { xs: 9, md: 12 }, borderRadius: 0.8 }} />
                   ))}
@@ -590,6 +695,35 @@ export default function AnimeDetailPage() {
             {/* Comments tab */}
             {activeTab === 'comments' && (
               <Box sx={{ pt: { xs: 1.4, md: 2 }, mb: { xs: 2.4, md: 3.2 } }}>
+                <Box sx={{ border: '1px solid #2a2a2a', borderRadius: 1, bgcolor: '#151515', px: { xs: 1, md: 1.3 }, py: { xs: 1, md: 1.2 }, mb: { xs: 1.2, md: 1.8 } }}>
+                  <Typography sx={{ color: '#fff', fontSize: { xs: 11.5, md: 15 }, fontWeight: 900, mb: 0.6 }}>
+                    {t.rateMovie}
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, flexWrap: 'wrap' }}>
+                    <StarRating value={pendingRating || 0} interactive onRate={rateAnime} size={{ xs: 20, md: 26 }} />
+                    <Typography sx={{ color: userRating ? '#ffb300' : '#777', fontSize: { xs: 10, md: 13 }, fontWeight: 800 }}>
+                      {userRating ? `Đã lưu ${userRating}/5. Chọn sao khác rồi xác nhận để sửa.` : pendingRating ? `Đã chọn ${pendingRating}/5, hãy xác nhận để lưu.` : 'Mỗi tài khoản đánh giá 1 lần và có thể sửa.'}
+                    </Typography>
+                    <Button
+                      onClick={confirmRating}
+                      disabled={!pendingRating || pendingRating === userRating}
+                      variant="contained"
+                      sx={{
+                        bgcolor: '#ff9800',
+                        color: '#fff',
+                        boxShadow: 'none',
+                        textTransform: 'none',
+                        minHeight: '28px !important',
+                        px: 1.2,
+                        fontSize: { xs: 10, md: 13 },
+                        '&:hover': { bgcolor: '#e68a00', boxShadow: 'none' },
+                        '&.Mui-disabled': { bgcolor: '#2a2a2a', color: '#666' }
+                      }}
+                    >
+                      {t.confirmRating}
+                    </Button>
+                  </Box>
+                </Box>
                 {/* Input area */}
                 <Box sx={{ border: '1px solid #2a2a2a', borderRadius: 1, overflow: 'hidden', mb: { xs: 1.4, md: 2 } }}>
                   <Box sx={{ position: 'relative' }}>
@@ -597,11 +731,11 @@ export default function AnimeDetailPage() {
                       component="textarea"
                       value={commentText}
                       onChange={(e) => setCommentText(e.target.value)}
-                      placeholder="Nhập bình luận..."
+                      placeholder={t.commentPlaceholder}
                       rows={3}
                       sx={{ width: '100%', display: 'block', bgcolor: '#161616', border: 0, outline: 0, color: '#ddd', fontSize: { xs: 10.5, md: 14 }, fontFamily: 'Roboto, Arial, sans-serif', resize: 'none', px: 1.2, pt: 1, pb: 2.5, boxSizing: 'border-box' }}
                     />
-                    <Typography sx={{ position: 'absolute', bottom: 6, right: 10, fontSize: { xs: 15, md: 18 }, cursor: 'pointer', lineHeight: 1, userSelect: 'none' }}>😊</Typography>
+                    <Typography sx={{ position: 'absolute', bottom: 6, right: 10, fontSize: { xs: 15, md: 18 }, cursor: 'pointer', lineHeight: 1, userSelect: 'none' }}>:)</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, px: 1, py: 0.8, bgcolor: '#141414', borderTop: '1px solid #1e1e1e' }}>
                     <Box sx={{ width: { xs: 22, md: 28 }, height: { xs: 22, md: 28 }, borderRadius: '50%', flexShrink: 0, bgcolor: getAvatarColor(getSessionUser()?.fullName || 'B'), color: '#fff', display: 'grid', placeItems: 'center', fontSize: { xs: 9, md: 11 }, fontWeight: 900 }}>
@@ -611,7 +745,7 @@ export default function AnimeDetailPage() {
                       {getSessionUser()?.fullName || 'Bạn'}
                     </Typography>
                     <Button onClick={() => setCommentText('')} sx={{ color: '#666', textTransform: 'none', minHeight: '26px !important', px: 0.9, py: 0.3, fontSize: { xs: 10, md: 13 } }}>
-                      Hủy
+                      {t.cancel}
                     </Button>
                     <Button
                       onClick={(e) => { e.preventDefault(); submitComment(e); }}
@@ -619,13 +753,13 @@ export default function AnimeDetailPage() {
                       disabled={!commentText.trim()}
                       sx={{ bgcolor: '#ff9800', color: '#fff', boxShadow: 'none', textTransform: 'none', minHeight: '26px !important', px: 1.2, py: 0.3, fontSize: { xs: 10, md: 13 }, '&:hover': { bgcolor: '#e68a00', boxShadow: 'none' }, '&.Mui-disabled': { bgcolor: '#2a2a2a', color: '#555' } }}
                     >
-                      Bình luận
+                      {t.comment}
                     </Button>
                   </Box>
                 </Box>
 
                 <Typography sx={{ color: '#444', fontSize: { xs: 9, md: 11 }, mb: { xs: 1, md: 1.4 } }}>
-                  Giới hạn 3 bình luận / giờ
+                  {t.commentLimit}
                 </Typography>
 
                 {commentError && (
@@ -635,7 +769,7 @@ export default function AnimeDetailPage() {
                 )}
 
                 {commentLoading && (
-                  <Typography sx={{ color: '#666', fontSize: { xs: 10, md: 13 }, mb: 1 }}>Đang tải bình luận...</Typography>
+                  <Typography sx={{ color: '#666', fontSize: { xs: 10, md: 13 }, mb: 1 }}>{t.loadingComments}</Typography>
                 )}
 
                 {openReactionId && (
@@ -677,7 +811,7 @@ export default function AnimeDetailPage() {
                                   ? <FavoriteIcon sx={{ fontSize: { xs: 12, md: 15 }, color: '#f44336' }} />
                                   : <FavoriteBorderIcon sx={{ fontSize: { xs: 12, md: 15 }, color: '#666' }} />}
                                 <Typography sx={{ fontSize: { xs: 9.5, md: 12.5 }, fontWeight: 600, color: isLikedComment ? '#f44336' : '#666' }}>
-                                  Thích
+                                  {t.like}
                                 </Typography>
                               </Box>
                               <Box
@@ -686,7 +820,7 @@ export default function AnimeDetailPage() {
                               >
                                 <ReplyIcon sx={{ fontSize: { xs: 12, md: 15 }, transform: 'scaleX(-1)', color: isReplying ? '#ff9800' : '#666' }} />
                                 <Typography sx={{ fontSize: { xs: 9.5, md: 12.5 }, fontWeight: 600, color: isReplying ? '#ff9800' : '#666' }}>
-                                  Trả lời
+                                  {t.reply}
                                 </Typography>
                               </Box>
                             </Box>
@@ -697,12 +831,12 @@ export default function AnimeDetailPage() {
                                   component="input"
                                   value={replyText}
                                   onChange={(e) => setReplyText(e.target.value)}
-                                  placeholder={`Trả lời ${comment.name}...`}
+                                  placeholder={`${t.reply} ${comment.name}...`}
                                   autoFocus
                                   sx={{ flex: 1, minWidth: 0, height: { xs: 30, md: 38 }, px: 1, border: '1px solid #333', borderRadius: 0.7, bgcolor: '#161616', color: '#fff', outline: 0, fontSize: { xs: 10, md: 13 }, fontFamily: 'Roboto, Arial, sans-serif' }}
                                 />
                                 <Button type="submit" variant="contained" sx={{ bgcolor: '#ff9800', boxShadow: 'none', textTransform: 'none', minHeight: '30px !important', px: 1.1, fontSize: { xs: 9.5, md: 12 }, '&:hover': { bgcolor: '#e68a00', boxShadow: 'none' } }}>
-                                  Gửi
+                                  {t.send}
                                 </Button>
                               </Box>
                             )}
@@ -716,7 +850,7 @@ export default function AnimeDetailPage() {
                                   {isExpanded ? '↑' : '↓'}
                                 </Typography>
                                 <Typography sx={{ color: '#ff9800', fontSize: { xs: 9.5, md: 12.5 }, fontWeight: 700, userSelect: 'none' }}>
-                                  {isExpanded ? `Ẩn ${replies.length} câu trả lời` : `Xem ${replies.length} câu trả lời`}
+                                  {isExpanded ? `${t.hideReplies} ${replies.length} ${t.replies}` : `${t.showReplies} ${replies.length} ${t.replies}`}
                                 </Typography>
                               </Box>
                             )}
@@ -743,7 +877,7 @@ export default function AnimeDetailPage() {
                                           {isReplyLiked
                                             ? <FavoriteIcon sx={{ fontSize: { xs: 11, md: 14 }, color: '#f44336' }} />
                                             : <FavoriteBorderIcon sx={{ fontSize: { xs: 11, md: 14 }, color: '#555' }} />}
-                                          <Typography sx={{ fontSize: { xs: 9, md: 12 }, fontWeight: 600, color: isReplyLiked ? '#f44336' : '#555' }}>Thích</Typography>
+                                          <Typography sx={{ fontSize: { xs: 9, md: 12 }, fontWeight: 600, color: isReplyLiked ? '#f44336' : '#555' }}>{t.like}</Typography>
                                         </Box>
                                       </Box>
                                     </Box>
@@ -761,7 +895,7 @@ export default function AnimeDetailPage() {
             )}
 
             <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1, md: 1.6 } }}>
-              <Typography sx={{ fontWeight: 900, textTransform: 'uppercase', fontSize: { xs: 12.5, md: 16 }, mr: 0.6 }}>TOP 10</Typography>
+              <Typography sx={{ fontWeight: 900, textTransform: 'uppercase', fontSize: { xs: 12.5, md: 16 }, mr: 0.6 }}>{t.top10}</Typography>
               <Box sx={{ display: 'flex', gap: '2px' }}>
                 {[1, 2, 3].map((n) => (
                   <Box key={n} sx={{ width: { xs: 5, md: 7 }, height: { xs: 12, md: 17 }, bgcolor: n === 1 ? '#ff9800' : n === 2 ? '#f06000' : '#c04000', borderRadius: '1px' }} />
@@ -791,6 +925,10 @@ export default function AnimeDetailPage() {
                         <PlayCircleOutlinedIcon sx={{ fontSize: { xs: 12, md: 16 }, color: '#fff' }} />
                       </Box>
                     )}
+                    <Box sx={{ position: 'absolute', right: 3, top: 3, display: 'flex', alignItems: 'center', gap: 0.2, px: 0.35, py: 0.1, borderRadius: 0.4, bgcolor: 'rgba(0,0,0,0.72)' }}>
+                      <StarIcon sx={{ fontSize: { xs: 8.5, md: 11 }, color: '#ffb300' }} />
+                      <Typography sx={{ color: '#fff', fontSize: { xs: 7.5, md: 10 }, fontWeight: 900 }}>{Number(typeof item.rating === 'number' ? item.rating : getRatingScore(item.title)).toFixed(1)}</Typography>
+                    </Box>
                   </Box>
                   <Typography sx={{ fontWeight: 700, lineHeight: 1.2, fontSize: { xs: 9, md: 12 }, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: '#ddd' }}>
                     {item.title}
@@ -802,7 +940,7 @@ export default function AnimeDetailPage() {
             {recommendedAnime.length > 0 && (
               <>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 1, md: 1.6 }, mt: { xs: 0.5, md: 1 } }}>
-                  <Typography sx={{ fontWeight: 900, textTransform: 'uppercase', fontSize: { xs: 12.5, md: 16 } }}>HÔM NAY XEM GÌ</Typography>
+                  <Typography sx={{ fontWeight: 900, textTransform: 'uppercase', fontSize: { xs: 12.5, md: 16 } }}>{t.todayWatch}</Typography>
                 </Box>
 
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(4, 1fr)', md: 'repeat(5, 1fr)' }, gap: { xs: '16px 8px', md: '20px 12px' }, mb: { xs: 1.6, md: 2 } }}>
@@ -812,6 +950,10 @@ export default function AnimeDetailPage() {
                         <img src={item.img} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                         <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
                           <PlayCircleOutlinedIcon sx={{ fontSize: { xs: 20, md: 28 }, color: 'rgba(255,255,255,0.85)' }} />
+                        </Box>
+                        <Box sx={{ position: 'absolute', right: 3, top: 3, display: 'flex', alignItems: 'center', gap: 0.2, px: 0.35, py: 0.1, borderRadius: 0.4, bgcolor: 'rgba(0,0,0,0.72)' }}>
+                          <StarIcon sx={{ fontSize: { xs: 8.5, md: 11 }, color: '#ffb300' }} />
+                          <Typography sx={{ color: '#fff', fontSize: { xs: 7.5, md: 10 }, fontWeight: 900 }}>{Number(typeof item.rating === 'number' ? item.rating : getRatingScore(item.title)).toFixed(1)}</Typography>
                         </Box>
                       </Box>
                       <Typography sx={{ fontWeight: 700, lineHeight: 1.25, fontSize: { xs: 9, md: 12 }, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: '#ddd' }}>
@@ -828,7 +970,7 @@ export default function AnimeDetailPage() {
                       onClick={() => homePage > 1 && setHomePage(homePage - 1)}
                       sx={{ px: { xs: 1.2, md: 2 }, height: { xs: 28, md: 36 }, display: 'flex', alignItems: 'center', borderRadius: 1, border: '1px solid #333', bgcolor: '#1a1a1a', color: homePage === 1 ? '#444' : '#ccc', fontSize: { xs: 10.5, md: 13 }, fontWeight: 700, cursor: homePage === 1 ? 'default' : 'pointer' }}
                     >
-                      Trước
+                      {t.prev}
                     </Box>
                     {getPageNumbers(homePage, Math.ceil(recommendedAnime.length / HOME_PAGE_SIZE)).map((n) => (
                       <Box
@@ -843,7 +985,7 @@ export default function AnimeDetailPage() {
                       onClick={() => homePage < Math.ceil(recommendedAnime.length / HOME_PAGE_SIZE) && setHomePage(homePage + 1)}
                       sx={{ px: { xs: 1.2, md: 2 }, height: { xs: 28, md: 36 }, display: 'flex', alignItems: 'center', borderRadius: 1, border: '1px solid #333', bgcolor: '#1a1a1a', color: homePage === Math.ceil(recommendedAnime.length / HOME_PAGE_SIZE) ? '#444' : '#ccc', fontSize: { xs: 10.5, md: 13 }, fontWeight: 700, cursor: homePage === Math.ceil(recommendedAnime.length / HOME_PAGE_SIZE) ? 'default' : 'pointer' }}
                     >
-                      Sau
+                      {t.next}
                     </Box>
                   </Box>
                 )}

@@ -4,16 +4,19 @@ import FavoriteIcon from '@mui/icons-material/Favorite';
 import HomeIcon from '@mui/icons-material/Home';
 import MenuIcon from '@mui/icons-material/Menu';
 import NotificationsIcon from '@mui/icons-material/Notifications';
+import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import PersonIcon from '@mui/icons-material/Person';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PublicIcon from '@mui/icons-material/Public';
 import SearchIcon from '@mui/icons-material/Search';
 import SettingsIcon from '@mui/icons-material/Settings';
-import { Box, IconButton, Stack, Typography } from '@mui/material';
+import { Badge, Box, IconButton, Stack, Typography } from '@mui/material';
 import PageShell from '../components/PageShell.js';
 import PhoneFrame from '../components/PhoneFrame.js';
 import { fetchHomeAnime } from '../services/animeApi.js';
 import { getSessionUser } from '../services/authSession.js';
+import { getT } from '../services/i18n.js';
+import { getUnreadCount, checkAndTriggerScheduled } from '../services/notifications.js';
 import logoUrl from '../../logo.jpg';
 
 const selectedAnimeKey = 'selectedAnimeDetail';
@@ -184,7 +187,14 @@ const fallbackHomeData = {
 function Header({ onNotice }) {
   const [backgroundMode, setBackgroundMode] = useState('dark');
   const [openBackgroundMenu, setOpenBackgroundMenu] = useState(false);
+  const [unread, setUnread] = useState(getUnreadCount);
   const isLight = backgroundMode === 'light';
+
+  useEffect(() => {
+    const refresh = () => setUnread(getUnreadCount());
+    window.addEventListener('hhtq-notif-change', refresh);
+    return () => window.removeEventListener('hhtq-notif-change', refresh);
+  }, []);
 
   return (
     <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ position: 'relative', px: { xs: 1.4, md: 3 }, py: { xs: 1.1, md: 1.6 }, bgcolor: isLight ? '#fff' : '#101010' }}>
@@ -230,28 +240,31 @@ function Header({ onNotice }) {
           HHTQ Anime
         </Typography>
       </Stack>
-      <Stack direction="row" spacing={{ xs: 0.2, md: 1 }}>
-        {[
-          [PublicIcon, 'region'],
-          [SearchIcon, 'search'],
-          [PersonIcon, 'profile']
-        ].map(([Icon, key]) => (
-          <IconButton
-            key={key}
-            size="small"
-            onClick={() => {
-              if (key === 'region') {
-                setOpenBackgroundMenu((current) => !current);
-                return;
-              }
-              if (key === 'search') go('/search');
-              if (key === 'profile') go(getCurrentUser() ? '/profile' : '/no-login');
-            }}
-            sx={{ color: isLight ? '#555' : '#777', p: { xs: 0.65, md: 1 } }}
-          >
-            {createElement(Icon, { sx: { fontSize: { xs: 18, md: 24 } } })}
-          </IconButton>
-        ))}
+      <Stack direction="row" alignItems="center" spacing={{ xs: 0.1, md: 0.8 }}>
+        {/* Bell notification */}
+        <IconButton size="small" onClick={() => go('/notifications')} sx={{ color: isLight ? '#555' : '#777', p: { xs: 0.65, md: 1 } }}>
+          <Badge badgeContent={unread} max={99} sx={{ '& .MuiBadge-badge': { bgcolor: '#e53935', color: '#fff', fontSize: { xs: 8, md: 10 }, fontWeight: 900, minWidth: { xs: 14, md: 18 }, height: { xs: 14, md: 18 }, p: 0 } }}>
+            {unread > 0
+              ? <NotificationsIcon sx={{ fontSize: { xs: 18, md: 24 } }} />
+              : <NotificationsNoneIcon sx={{ fontSize: { xs: 18, md: 24 } }} />
+            }
+          </Badge>
+        </IconButton>
+
+        {/* Region / theme toggle */}
+        <IconButton size="small" onClick={() => setOpenBackgroundMenu(c => !c)} sx={{ color: isLight ? '#555' : '#777', p: { xs: 0.65, md: 1 } }}>
+          <PublicIcon sx={{ fontSize: { xs: 18, md: 24 } }} />
+        </IconButton>
+
+        {/* Search */}
+        <IconButton size="small" onClick={() => go('/search')} sx={{ color: isLight ? '#555' : '#777', p: { xs: 0.65, md: 1 } }}>
+          <SearchIcon sx={{ fontSize: { xs: 18, md: 24 } }} />
+        </IconButton>
+
+        {/* Profile */}
+        <IconButton size="small" onClick={() => go(getCurrentUser() ? '/profile' : '/no-login')} sx={{ color: isLight ? '#555' : '#777', p: { xs: 0.65, md: 1 } }}>
+          <PersonIcon sx={{ fontSize: { xs: 18, md: 24 } }} />
+        </IconButton>
       </Stack>
       {openBackgroundMenu && (
         <Stack sx={{ position: 'absolute', top: { xs: 38, md: 58 }, right: { xs: 52, md: 82 }, zIndex: 5, width: { xs: 98, md: 132 }, bgcolor: '#0d0d0d', border: '1px solid #333', borderRadius: 0.6, overflow: 'hidden' }}>
@@ -286,6 +299,7 @@ function SectionTitle({ children }) {
 }
 
 function ShowMore({ path = '/search' }) {
+  const t = getT();
   return (
     <Stack
       direction="row"
@@ -295,13 +309,14 @@ function ShowMore({ path = '/search' }) {
       onClick={() => go(path)}
       sx={{ height: { xs: 39, md: 46 }, border: '1px solid #3b3b3b', borderRadius: 0.5, color: '#d9d9d9', mt: { xs: 1.4, md: 2.4 }, cursor: 'pointer' }}
     >
-      <Typography sx={{ fontSize: { xs: 11, md: 14 }, fontWeight: 700 }}>Xem thêm</Typography>
+      <Typography sx={{ fontSize: { xs: 11, md: 14 }, fontWeight: 700 }}>{t.seeMore}</Typography>
       <ArrowForwardIcon sx={{ fontSize: { xs: 16, md: 20 }, color: '#777' }} />
     </Stack>
   );
 }
 
 function AnimePagination({ page, totalPages, onChange }) {
+  const t = getT();
   if (totalPages <= 1) return null;
 
   const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
@@ -318,7 +333,7 @@ function AnimePagination({ page, totalPages, onChange }) {
         onClick={() => page > 1 && onChange(page - 1)}
         sx={{ px: { xs: 1, md: 1.25 }, height: { xs: 30, md: 36 }, display: 'grid', placeItems: 'center', border: '1px solid #343434', borderRadius: 0.6, color: page > 1 ? '#ddd' : '#555', fontSize: { xs: 10.5, md: 13 }, fontWeight: 800, cursor: page > 1 ? 'pointer' : 'default' }}
       >
-        Trước
+        {t.prev}
       </Typography>
       {pages.map((item) => (
         <Typography
@@ -333,7 +348,7 @@ function AnimePagination({ page, totalPages, onChange }) {
         onClick={() => page < totalPages && onChange(page + 1)}
         sx={{ px: { xs: 1, md: 1.25 }, height: { xs: 30, md: 36 }, display: 'grid', placeItems: 'center', border: '1px solid #343434', borderRadius: 0.6, color: page < totalPages ? '#ddd' : '#555', fontSize: { xs: 10.5, md: 13 }, fontWeight: 800, cursor: page < totalPages ? 'pointer' : 'default' }}
       >
-        Sau
+        {t.next}
       </Typography>
     </Stack>
   );
@@ -451,6 +466,7 @@ function Toast({ text }) {
 }
 
 function MenuPage() {
+  const t = getT();
   const [toast, setToast] = useState('');
   const [homeData, setHomeData] = useState(null);
   const [apiError, setApiError] = useState('');
@@ -475,6 +491,7 @@ function MenuPage() {
         if (!ignore) {
           setHomeData(nextData);
           setApiError('');
+          checkAndTriggerScheduled(nextData, null);
         }
       })
       .catch((error) => {
@@ -482,6 +499,7 @@ function MenuPage() {
           console.warn('Home API failed, using fallback data:', error);
           setHomeData(fallbackHomeData);
           setApiError('');
+          checkAndTriggerScheduled(fallbackHomeData, null);
         }
       });
 
@@ -564,7 +582,7 @@ function MenuPage() {
 
           <Box id="coming-soon" sx={{ px: { xs: 1.4, md: 3 }, pt: { xs: 1, md: 3 }, scrollMarginTop: { xs: 56, md: 84 } }}>
             <Typography align="center" sx={{ color: '#f1f1f1', fontSize: { xs: 13, md: 20 }, fontWeight: 800, mb: { xs: 1.4, md: 2.4 } }}>
-              Sắp ra mắt
+              {t.comingSoon}
             </Typography>
             <Box
               sx={{
@@ -597,7 +615,7 @@ function MenuPage() {
           </Box>
 
           <Box id="anime" sx={{ px: { xs: 1.4, md: 3 }, py: { xs: 1.5, md: 3 }, borderTop: '1px solid #242424', scrollMarginTop: { xs: 56, md: 84 } }}>
-            <SectionTitle>Tập mới nhất</SectionTitle>
+            <SectionTitle>{t.latestEpisodes}</SectionTitle>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }, gap: { xs: '16px 14px', md: '24px 24px' }, justifyItems: 'center' }}>
               {pagedAnime.map((item) => (
                 <Box key={`${item[0]}-${item[3]}`} sx={{ width: '75%' }}>
@@ -609,7 +627,7 @@ function MenuPage() {
           </Box>
 
           <Box id="ranking" sx={{ px: { xs: 1.4, md: 3 }, py: { xs: 1.4, md: 3 }, borderTop: '1px solid #242424', scrollMarginTop: { xs: 56, md: 84 } }}>
-            <SectionTitle>BXH</SectionTitle>
+            <SectionTitle>{t.ranking}</SectionTitle>
             <Stack direction="row" spacing={{ xs: 1, md: 2 }} sx={{ overflowX: 'auto', pb: 0.5, scrollbarWidth: 'none' }}>
               {homeData.ranking.map((item, index) => (
                 <Box key={`${item[0]}-${item[3]}`} onClick={() => openAnime(item)} sx={{ minWidth: { xs: 124, md: 216 }, cursor: 'pointer', perspective: 900 }}>
@@ -625,7 +643,7 @@ function MenuPage() {
           </Box>
 
           <Box id="news" sx={{ px: { xs: 1.4, md: 3 }, py: { xs: 1.4, md: 3 }, borderTop: '1px solid #242424', scrollMarginTop: { xs: 56, md: 84 } }}>
-            <SectionTitle>Tin anime</SectionTitle>
+            <SectionTitle>{t.animeNews}</SectionTitle>
             <Stack spacing={{ xs: 1.2, md: 2 }}>
               {homeData.news.map((item) => (
                 <Stack key={`${item[0]}-${item[3]}`} direction="row" spacing={{ xs: 1.1, md: 2 }} onClick={() => openNews(item)} sx={{ cursor: 'pointer' }}>
@@ -644,7 +662,7 @@ function MenuPage() {
           </Box>
 
           <Box id="manga" sx={{ px: { xs: 1.4, md: 3 }, py: { xs: 1.4, md: 3 }, borderTop: '1px solid #242424', scrollMarginTop: { xs: 56, md: 84 } }}>
-            <SectionTitle>Truyện tranh</SectionTitle>
+            <SectionTitle>{t.manga}</SectionTitle>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' }, gap: { xs: '14px 10px', md: '24px 18px' } }}>
               {pagedManga.map((item) => (
                 <PosterTile key={`${item[0]}-${item[1]}`} item={item} compact onSelect={openManga} />
@@ -660,10 +678,10 @@ function MenuPage() {
           sx={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: { xs: 55, md: 70 }, bgcolor: '#151515', borderTop: '1px solid #282828' }}
         >
           {[
-            [HomeIcon, 'Trang chủ', true],
-            [FavoriteIcon, 'Phim đã thích'],
-            [NotificationsIcon, 'Phim đã theo dõi'],
-            [SettingsIcon, 'Cài đặt']
+            [HomeIcon, t.home, true],
+            [FavoriteIcon, t.favorites],
+            [NotificationsIcon, t.followed2],
+            [SettingsIcon, t.settings]
           ].map(([Icon, label, active], index) => (
             <Stack
               key={label}

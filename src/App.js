@@ -34,6 +34,7 @@ import MangaDetailPage from './pages/MangaDetailPage.js';
 import MangaMenuPage from './pages/MangaMenuPage.js';
 import NewsDetailPage from './pages/NewsDetailPage.js';
 import NewsMenuPage from './pages/NewsMenuPage.js';
+import NotificationsPage from './pages/NotificationsPage.js';
 
 const publicRoutes = [
   { path: '/no-login', element: <LoginRequiredPage /> },
@@ -76,7 +77,8 @@ const protectedRoutes = [
   { path: '/manga-menu', element: <MangaMenuPage /> },
   { path: '/manga-detail', element: <MangaDetailPage /> },
   { path: '/news-menu', element: <NewsMenuPage /> },
-  { path: '/news-detail', element: <NewsDetailPage /> }
+  { path: '/news-detail', element: <NewsDetailPage /> },
+  { path: '/notifications', element: <NotificationsPage /> }
 ];
 
 function RequireAuth({ children }) {

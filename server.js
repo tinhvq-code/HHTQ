@@ -830,7 +830,7 @@ app.post('/api/feedback', async (req, res) => {
 
 await connectSqlServer();
 
-const COMMENT_LIMIT_PER_HOUR = 3;
+const COMMENT_LIMIT_PER_DAY = 3;
 
 const mergeReactionsIntoComments = (comments, reactionRows, myReactionRows) => {
   const reactionMap = {};
@@ -950,10 +950,10 @@ app.post('/api/anime-comments', async (req, res) => {
           .query(`
             SELECT COUNT(*) AS cnt FROM dbo.AnimeComments
             WHERE AnimeTitle = @AnimeTitle AND UserId = @ActorId
-            AND CreatedAt >= DATEADD(HOUR, -1, SYSUTCDATETIME())
+            AND CreatedAt >= DATEADD(DAY, -1, SYSUTCDATETIME())
           `);
-        if ((limitCheck.recordset[0]?.cnt || 0) >= COMMENT_LIMIT_PER_HOUR) {
-          return res.status(429).json({ message: 'Ban da dat gioi han 3 binh luan moi gio.' });
+        if ((limitCheck.recordset[0]?.cnt || 0) >= COMMENT_LIMIT_PER_DAY) {
+          return res.status(429).json({ message: 'Bạn đã đạt giới hạn 3 bình luận trong 1 ngày.' });
         }
       }
 
@@ -981,10 +981,10 @@ app.post('/api/anime-comments', async (req, res) => {
         const count = await Comment.countDocuments({
           animeTitle,
           userId: actorId,
-          createdAt: { $gte: new Date(Date.now() - 3600000) }
+          createdAt: { $gte: new Date(Date.now() - 86400000) }
         });
-        if (count >= COMMENT_LIMIT_PER_HOUR) {
-          return res.status(429).json({ message: 'Ban da dat gioi han 3 binh luan moi gio.' });
+        if (count >= COMMENT_LIMIT_PER_DAY) {
+          return res.status(429).json({ message: 'Bạn đã đạt giới hạn 3 bình luận trong 1 ngày.' });
         }
       }
       const comment = await Comment.create({
@@ -995,12 +995,12 @@ app.post('/api/anime-comments', async (req, res) => {
     }
 
     if (actorId) {
-      const hourAgo = Date.now() - 3600000;
+      const dayAgo = Date.now() - 86400000;
       const count = localCommentsCache.filter(
-        (c) => c.animeTitle === animeTitle && c.userId === actorId && new Date(c.createdAt).getTime() > hourAgo
+        (c) => c.animeTitle === animeTitle && c.userId === actorId && new Date(c.createdAt).getTime() > dayAgo
       ).length;
-      if (count >= COMMENT_LIMIT_PER_HOUR) {
-        return res.status(429).json({ message: 'Ban da dat gioi han 3 binh luan moi gio.' });
+      if (count >= COMMENT_LIMIT_PER_DAY) {
+        return res.status(429).json({ message: 'Bạn đã đạt giới hạn 3 bình luận trong 1 ngày.' });
       }
     }
     const comment = {

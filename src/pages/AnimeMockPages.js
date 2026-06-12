@@ -30,6 +30,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import SettingsIcon from '@mui/icons-material/Settings';
 import SmartDisplayOutlinedIcon from '@mui/icons-material/SmartDisplayOutlined';
 import SportsEsportsOutlinedIcon from '@mui/icons-material/SportsEsportsOutlined';
+import StarIcon from '@mui/icons-material/Star';
 import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
 import { Box, Button, IconButton, Stack, TextareaAutosize, Typography } from '@mui/material';
 import PageShell from '../components/PageShell.js';
@@ -45,6 +46,7 @@ import {
   writeUserList
 } from '../services/authSession.js';
 import { fetchUserProfile, sendUserFeedback, updateUserProfile } from '../services/userApi.js';
+import { getT, getStoredLanguage, languageOptions } from '../services/i18n.js';
 
 const orange = '#ff9800';
 const bg = '#101010';
@@ -97,6 +99,11 @@ const watchedAnimeKey = 'watchedAnimeItems';
 const favoriteAnimeKey = 'favoriteAnimeItems';
 const followedAnimeKey = 'followedAnimeItems';
 
+const getRatingScore = (seed = '', index = 0) => {
+  const total = String(seed || 'anime').split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return Number((4.1 + ((total + index * 7) % 9) / 10).toFixed(1));
+};
+
 const readSavedVideoItems = (key) => {
   return readUserList(key);
 };
@@ -111,7 +118,8 @@ const videoItemToDetail = (item) => ({
   views: item?.[2] || 'Đang cập nhật lượt xem',
   img: item?.[3] || '',
   trailer: item?.[4] || null,
-  genres: item?.[5] || []
+  genres: item?.[5] || [],
+  rating: typeof item?.[6] === 'number' ? item[6] : getRatingScore(item?.[0])
 });
 
 const openAnimeDetailFromVideo = (item) => {
@@ -167,75 +175,7 @@ const getProfileInfo = () => {
   };
 };
 
-const languageOptions = [
-  { code: 'vi', flag: 'VN', label: 'Ti\u1ebfng Vi\u1ec7t' },
-  { code: 'en', flag: 'EN', label: 'English' },
-  { code: 'th', flag: 'TH', label: '\u0e20\u0e32\u0e29\u0e32\u0e44\u0e17\u0e22' }
-];
-
-const languageText = {
-  vi: {
-    profileTitle: 'C\u00e1 nh\u00e2n',
-    guestProfileTitle: 'C\u00e1 nh\u00e2n ch\u01b0a \u0111\u0103ng nh\u1eadp',
-    settings: 'C\u00e0i \u0111\u1eb7t',
-    loginRegister: '\u0110\u0103ng nh\u1eadp / \u0110\u0103ng k\u00fd',
-    edit: 'Ch\u1ec9nh s\u1eeda',
-    logout: '\u0110\u0103ng xu\u1ea5t',
-    notUpdated: 'Ch\u01b0a c\u1eadp nh\u1eadt th\u00f4ng tin',
-    emailEmpty: 'Ch\u01b0a c\u1eadp nh\u1eadt email',
-    history: 'L\u1ecbch s\u1eed xem',
-    changePassword: '\u0110\u1ed5i m\u1eadt kh\u1ea9u',
-    language: 'Ng\u00f4n ng\u1eef',
-    faq: 'C\u00e2u h\u1ecfi th\u01b0\u1eddng g\u1eb7p',
-    feedback: 'Ph\u1ea3n \u00e1nh \u00fd ki\u1ebfn',
-    languageTitle: 'Thay \u0111\u1ed5i ng\u00f4n ng\u1eef',
-    close: '\u0110\u00f3ng',
-    confirm: 'X\u00e1c nh\u1eadn'
-  },
-  en: {
-    profileTitle: 'Profile',
-    guestProfileTitle: 'Guest profile',
-    settings: 'Settings',
-    loginRegister: 'Login / Register',
-    edit: 'Edit',
-    logout: 'Log out',
-    notUpdated: 'Information not updated',
-    emailEmpty: 'Email not updated',
-    history: 'Watch history',
-    changePassword: 'Change password',
-    language: 'Language',
-    faq: 'FAQ',
-    feedback: 'Feedback',
-    languageTitle: 'Change language',
-    close: 'Close',
-    confirm: 'Confirm'
-  },
-  th: {
-    profileTitle: '\u0e42\u0e1b\u0e23\u0e44\u0e1f\u0e25\u0e4c',
-    guestProfileTitle: '\u0e42\u0e1b\u0e23\u0e44\u0e1f\u0e25\u0e4c\u0e1c\u0e39\u0e49\u0e40\u0e22\u0e35\u0e48\u0e22\u0e21\u0e0a\u0e21',
-    settings: '\u0e01\u0e32\u0e23\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32',
-    loginRegister: '\u0e40\u0e02\u0e49\u0e32\u0e2a\u0e39\u0e48\u0e23\u0e30\u0e1a\u0e1a / \u0e2a\u0e21\u0e31\u0e04\u0e23\u0e2a\u0e21\u0e32\u0e0a\u0e34\u0e01',
-    edit: '\u0e41\u0e01\u0e49\u0e44\u0e02',
-    logout: '\u0e2d\u0e2d\u0e01\u0e08\u0e32\u0e01\u0e23\u0e30\u0e1a\u0e1a',
-    notUpdated: '\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e2d\u0e31\u0e1b\u0e40\u0e14\u0e15\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25',
-    emailEmpty: '\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e2d\u0e31\u0e1b\u0e40\u0e14\u0e15\u0e2d\u0e35\u0e40\u0e21\u0e25',
-    history: '\u0e1b\u0e23\u0e30\u0e27\u0e31\u0e15\u0e34\u0e01\u0e32\u0e23\u0e23\u0e31\u0e1a\u0e0a\u0e21',
-    changePassword: '\u0e40\u0e1b\u0e25\u0e35\u0e48\u0e22\u0e19\u0e23\u0e2b\u0e31\u0e2a\u0e1c\u0e48\u0e32\u0e19',
-    language: '\u0e20\u0e32\u0e29\u0e32',
-    faq: '\u0e04\u0e33\u0e16\u0e32\u0e21\u0e17\u0e35\u0e48\u0e1e\u0e1a\u0e1a\u0e48\u0e2d\u0e22',
-    feedback: '\u0e02\u0e49\u0e2d\u0e40\u0e2a\u0e19\u0e2d\u0e41\u0e19\u0e30',
-    languageTitle: '\u0e40\u0e1b\u0e25\u0e35\u0e48\u0e22\u0e19\u0e20\u0e32\u0e29\u0e32',
-    close: '\u0e1b\u0e34\u0e14',
-    confirm: '\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19'
-  }
-};
-const getStoredLanguage = () => {
-  const code = window.localStorage.getItem('appLanguage') || 'vi';
-
-  return languageText[code] ? code : 'vi';
-};
-
-const getLanguageCopy = () => languageText[getStoredLanguage()] || languageText.vi;
+const getLanguageCopy = () => getT();
 
 const STATIC_RANKING_ITEMS = [
   ['Tuy\u1ebft \u01afng L\u0129nh Ch\u1ee7', 'T\u1eadp 1', '432k l\u01b0\u1ee3t xem', '/assets/anime-01.jpg'],
@@ -390,11 +330,12 @@ function SearchBox({ placeholder = 'Anime, truyện tranh, nhân vật...', valu
   );
 }
 export function BottomNav({ active = 'home' }) {
+  const t = getT();
   const items = [
-    [HomeIcon, 'Trang chủ', 'home', '/home'],
-    [FavoriteIcon, 'Phim yêu thích', 'like', '/favorites'],
-    [NotificationsIcon, 'Phim theo dõi  ', 'follow', '/followed'],
-    [SettingsIcon, 'Cài đặt', 'settings', getCurrentUser() ? '/profile' : '/no-login']
+    [HomeIcon, t.home, 'home', '/home'],
+    [FavoriteIcon, t.favorites, 'like', '/favorites'],
+    [NotificationsIcon, t.followed2, 'follow', '/followed'],
+    [SettingsIcon, t.settings, 'settings', getCurrentUser() ? '/profile' : '/no-login']
   ];
 
   return (
@@ -407,13 +348,17 @@ export function BottomNav({ active = 'home' }) {
       ))}
     </Stack>
   );
-} function PlayThumb({ seed, wide = false }) {
+} function PlayThumb({ seed, wide = false, rating }) {
   return (
     <Box sx={{ width: wide ? { xs: 118, md: 220 } : { xs: 103, md: 180 }, height: wide ? { xs: 67, md: 124 } : { xs: 58, md: 104 }, flexShrink: 0, position: 'relative', borderRadius: 0.4, background: `url(${poster(seed)}) center/cover`, overflow: 'hidden' }}>
       <Box sx={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', bgcolor: 'rgba(0,0,0,0.08)' }}>
         <Box sx={{ width: { xs: 30, md: 46 }, height: { xs: 30, md: 46 }, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.75)', display: 'grid', placeItems: 'center', color: '#fff' }}>
           <PlayArrowIcon sx={{ fontSize: { xs: 20, md: 30 } }} />
         </Box>
+      </Box>
+      <Box sx={{ position: 'absolute', right: 4, bottom: 4, display: 'flex', alignItems: 'center', gap: 0.25, px: 0.45, py: 0.1, borderRadius: 0.4, bgcolor: 'rgba(0,0,0,0.72)' }}>
+        <StarIcon sx={{ fontSize: { xs: 9, md: 13 }, color: '#ffb300' }} />
+        <Typography sx={{ color: '#fff', fontSize: { xs: 7.5, md: 11 }, fontWeight: 900 }}>{Number(typeof rating === 'number' ? rating : getRatingScore(seed)).toFixed(1)}</Typography>
       </Box>
     </Box>
   );
@@ -422,7 +367,7 @@ export function BottomNav({ active = 'home' }) {
 function VideoRow({ item, onOpen, onMore }) {
   return (
     <Stack direction="row" spacing={1} alignItems="center" sx={{ cursor: 'pointer' }} onClick={() => (onOpen ? onOpen(item) : openAnimeDetailFromVideo(item))}>
-      <PlayThumb seed={item[3]} wide />
+      <PlayThumb seed={item[3]} rating={typeof item?.[6] === 'number' ? item[6] : getRatingScore(item[0])} wide />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{ color: '#f2f2f2', fontSize: { xs: 11, md: 17 }, fontWeight: 800 }} noWrap>{item[0]}</Typography>
         <Typography sx={{ color: '#d8d8d8', fontSize: { xs: 10.5, md: 15 }, mt: 0.3 }}>{item[1]}</Typography>
@@ -441,7 +386,7 @@ function ApiOnlyState({ title, error }) {
       <Box sx={{ height: '100%', bgcolor: bg, display: error ? 'grid' : 'block', placeItems: 'center', px: 3, textAlign: 'center' }}>
         {error && (
           <Typography sx={{ color: '#ffb74d', fontSize: { xs: 12, md: 18 }, fontWeight: 800 }}>
-            Lá»—i API: {error}
+            {getT().apiError}: {error}
           </Typography>
         )}
       </Box>
@@ -565,7 +510,7 @@ export function SearchResultsPage() {
           </Stack>
 
           <Typography sx={{ color: '#dcdcdc', fontSize: { xs: 11.5, md: 18 }, fontWeight: 800, mb: { xs: 0.8, md: 1.6 } }}>
-            {normalizedQuery ? `Káº¿t quáº£ cho "${query}"` : 'Top anime'}
+            {normalizedQuery ? `${getT().searchResults} "${query}"` : getT().topAnime}
           </Typography>
 
           {results.length > 0 ? (
@@ -584,8 +529,8 @@ export function SearchResultsPage() {
           ) : (
             <Stack alignItems="center" sx={{ pt: { xs: 8, md: 12 }, textAlign: 'center' }}>
               <SmartDisplayOutlinedIcon sx={{ fontSize: { xs: 82, md: 130 }, color: '#383838' }} />
-              <Typography sx={{ color: '#fff', fontSize: { xs: 13, md: 22 }, fontWeight: 800, mt: 2 }}>KhĂ´ng tĂ¬m tháº¥y káº¿t quáº£</Typography>
-              <Typography sx={{ color: '#aaa', fontSize: { xs: 10.5, md: 16 }, fontWeight: 700, mt: 1 }}>Thá»­ tá»« khĂ³a khĂ¡c ngáº¯n hÆ¡n.</Typography>
+              <Typography sx={{ color: '#fff', fontSize: { xs: 13, md: 22 }, fontWeight: 800, mt: 2 }}>{getT().noResults}</Typography>
+              <Typography sx={{ color: '#aaa', fontSize: { xs: 10.5, md: 16 }, fontWeight: 700, mt: 1 }}>{getT().tryOtherKeyword}</Typography>
             </Stack>
           )}
         </Box>
@@ -650,13 +595,29 @@ export function ProfilePage({ guest = false, language = false }) {
 
     let ignore = false;
     const profileOwner = { id: user.id, email: user.email };
+    const cachedProfile = getUserProfileCache(profileOwner);
+    const localProfile = {
+      userId: user.id,
+      updated: Boolean(cachedProfile?.updated || user.fullName || user.phone || user.birthday || user.gender || user.avatar),
+      fullName: cachedProfile?.fullName || user.fullName || '',
+      email: cachedProfile?.email || user.email || '',
+      phone: cachedProfile?.phone || user.phone || '',
+      birthday: cachedProfile?.birthday || user.birthday || '',
+      gender: cachedProfile?.gender || user.gender || '',
+      avatar: cachedProfile?.avatar || user.avatar || ''
+    };
+    if (localProfile.updated) {
+      setProfile((prev) => ({ ...prev, ...localProfile, avatar: localProfile.avatar || prev.avatar || '' }));
+      return undefined;
+    }
+
     fetchUserProfile(user.id)
       .then(({ profile: nextProfile }) => {
         if (ignore) return;
-        const cachedProfile = getUserProfileCache(profileOwner);
+        const currentCache = getUserProfileCache(profileOwner);
         const mergedProfile = {
           ...nextProfile,
-          avatar: nextProfile.avatar || cachedProfile?.avatar || ''
+          avatar: nextProfile.avatar || currentCache?.avatar || ''
         };
         setUserProfileCache(mergedProfile, profileOwner);
         setProfile((prev) => ({ ...prev, ...mergedProfile, avatar: mergedProfile.avatar || prev.avatar || '' }));
@@ -666,7 +627,7 @@ export function ProfilePage({ guest = false, language = false }) {
     return () => {
       ignore = true;
     };
-  }, [guest, user?.email, user?.id]);
+  }, [guest, user?.avatar, user?.birthday, user?.email, user?.fullName, user?.gender, user?.id, user?.phone]);
 
   return (
     <PhonePage title={guest ? copy.guestProfileTitle : copy.profileTitle}>
@@ -714,7 +675,7 @@ export function ProfilePage({ guest = false, language = false }) {
 
 function LanguageDialog() {
   const [language, setLanguage] = useState(getStoredLanguage());
-  const copy = languageText[language] || languageText.vi;
+  const copy = getT();
   const confirmLanguage = () => {
     window.localStorage.setItem('appLanguage', language);
     go('/profile');
@@ -775,11 +736,32 @@ export function EditProfilePage() {
 
     let ignore = false;
     const profileOwner = { id: user.id, email: user.email };
+    const cachedProfile = getUserProfileCache(profileOwner);
+    const localProfile = {
+      fullName: cachedProfile?.fullName || user.fullName || '',
+      email: cachedProfile?.email || user.email || '',
+      phone: cachedProfile?.phone || user.phone || '',
+      birthday: cachedProfile?.birthday || user.birthday || '',
+      gender: cachedProfile?.gender || user.gender || '',
+      avatar: cachedProfile?.avatar || user.avatar || ''
+    };
+    if (cachedProfile?.updated || user.fullName || user.phone || user.birthday || user.gender || user.avatar) {
+      setValues({
+        fullName: localProfile.fullName,
+        email: localProfile.email,
+        phone: localProfile.phone,
+        birthday: toDateInputValue(localProfile.birthday),
+        gender: localProfile.gender,
+        avatar: localProfile.avatar
+      });
+      return undefined;
+    }
+
     fetchUserProfile(user.id)
       .then(({ profile: nextProfile }) => {
         if (ignore) return;
-        const cachedProfile = getUserProfileCache(profileOwner);
-        const mergedAvatar = nextProfile.avatar || cachedProfile?.avatar || user?.avatar || '';
+        const currentCache = getUserProfileCache(profileOwner);
+        const mergedAvatar = nextProfile.avatar || currentCache?.avatar || user?.avatar || '';
         setUserProfileCache({ ...nextProfile, avatar: mergedAvatar }, profileOwner);
         setValues({
           fullName: nextProfile.fullName || user?.fullName || '',
@@ -795,7 +777,7 @@ export function EditProfilePage() {
     return () => {
       ignore = true;
     };
-  }, [user?.email, user?.id]);
+  }, [user?.avatar, user?.birthday, user?.email, user?.fullName, user?.gender, user?.id, user?.phone]);
 
   const setFieldValue = (name, value) => {
     setSaveError('');
@@ -867,6 +849,22 @@ export function EditProfilePage() {
       setSessionUser(updatedUser || user);
       go('/profile');
     } catch (error) {
+      if (error?.code === 'API_OFFLINE') {
+        const updatedUser = {
+          ...user,
+          fullName: nextProfile.fullName,
+          email: nextProfile.email,
+          phone: nextProfile.phone,
+          birthday: nextProfile.birthday,
+          gender: nextProfile.gender,
+          avatar: nextProfile.avatar
+        };
+        setUserProfileCache(nextProfile, updatedUser);
+        setSessionUser(updatedUser);
+        go('/profile');
+        return;
+      }
+
       setSaveError(error?.message || 'Không thể lưu hồ sơ.');
     } finally {
       setIsSaving(false);
@@ -1023,11 +1021,11 @@ export function HistoryPage({ actions = false }) {
         {actions && (
           <Box onClick={() => go('/history')} sx={{ position: 'absolute', inset: 0, bgcolor: 'rgba(16,16,16,0.62)' }}>
             <Box onClick={(event) => event.stopPropagation()} sx={{ position: 'absolute', left: 20, right: 20, bottom: 84, bgcolor: '#151515', borderRadius: 0.8, overflow: 'hidden' }}>
-              <Stack onClick={() => window.alert('ÄĂ£ xĂ³a video khá»i lá»‹ch sá»­')} direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.4, height: 38, color: '#fff', cursor: 'pointer' }}>
+              <Stack onClick={() => window.alert('Đã xóa video khỏi lịch sử')} direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.4, height: 38, color: '#fff', cursor: 'pointer' }}>
                 <DeleteOutlineIcon sx={{ fontSize: 17 }} />
                 <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>Xóa video đã xem</Typography>
               </Stack>
-              <Stack onClick={() => window.alert('ÄĂ£ má»Ÿ chia sáº» phim')} direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.4, height: 38, color: '#fff', borderTop: `1px solid ${line}`, cursor: 'pointer' }}>
+              <Stack onClick={() => window.alert('Đã mở chia sẻ phim')} direction="row" alignItems="center" spacing={1.2} sx={{ px: 1.4, height: 38, color: '#fff', borderTop: `1px solid ${line}`, cursor: 'pointer' }}>
                 <ArticleOutlinedIcon sx={{ fontSize: 17 }} />
                 <Typography sx={{ fontSize: 11.5, fontWeight: 700 }}>Chia sẻ phim</Typography>
               </Stack>
@@ -1191,7 +1189,7 @@ export function FeedbackFormPage() {
             onChange={(event) => setText(event.target.value)}
             style={{ width: '100%', resize: 'none', background: 'transparent', color: '#eee', border: 0, outline: 0, fontSize: 12, fontFamily: 'Roboto, Arial, sans-serif' }}
           />
-          {message ? <Typography sx={{ color: message.startsWith('ÄĂ£') ? orange : '#ff8a80', fontSize: 10.5, fontWeight: 800 }}>{message}</Typography> : null}
+          {message ? <Typography sx={{ color: message.startsWith('Đã') ? orange : '#ff8a80', fontSize: 10.5, fontWeight: 800 }}>{message}</Typography> : null}
           <Typography align="right" sx={{ color: orange, fontSize: 10, mt: 9 }}>{text.length}/1000</Typography>
           <Stack onClick={() => window.alert('Đính kèm ảnh')} alignItems="center" justifyContent="center" sx={{ width: 72, height: 72, mt: 2, border: '1px dashed #777', color: '#aaa', cursor: 'pointer' }}>
             <ImageOutlinedIcon sx={{ fontSize: 24 }} />
@@ -1211,7 +1209,7 @@ function VideoActionSheet({ kind, closePath, deletePath, item }) {
       return;
     }
 
-    window.alert(`Chia sáº» phim: ${title}`);
+    window.alert(`Chia sẻ phim: ${title}`);
   };
 
   return (
@@ -1230,7 +1228,7 @@ function VideoActionSheet({ kind, closePath, deletePath, item }) {
   );
 }
 
-function DeleteConfirmDialog({ title, message, closePath, storageKey, item, confirmText = 'XĂ³a' }) {
+function DeleteConfirmDialog({ title, message, closePath, storageKey, item, confirmText = 'Xóa' }) {
   const confirmDelete = () => {
     removeSavedVideoItem(storageKey, item);
     window.localStorage.removeItem(selectedListItemKey);
@@ -1251,7 +1249,7 @@ function DeleteConfirmDialog({ title, message, closePath, storageKey, item, conf
         <Typography align="center" sx={{ color: '#d5d5d5', fontSize: 10.5, mt: 0.5, mb: 1.6 }}>{message}</Typography>
         <Stack direction="row" spacing={1.2}>
           <Button onClick={() => go(closePath)} fullWidth variant="contained" sx={{ bgcolor: '#777', boxShadow: 'none', height: 34, borderRadius: 0.5, fontSize: 11, '&:hover': { bgcolor: '#777', boxShadow: 'none' } }}>
-            ÄĂ³ng
+            Đóng
           </Button>
           <Button onClick={confirmDelete} fullWidth variant="contained" sx={{ bgcolor: orange, boxShadow: 'none', height: 34, borderRadius: 0.5, fontSize: 11, '&:hover': { bgcolor: orange, boxShadow: 'none' } }}>
             {confirmText}

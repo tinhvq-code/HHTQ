@@ -59,26 +59,7 @@ export async function fetchYouTubeVideoData(videoId) {
       };
     }
 
-    const oEmbedUrl = new URL('https://www.youtube.com/oembed');
-    oEmbedUrl.searchParams.set('url', `https://www.youtube.com/watch?v=${videoId}`);
-    oEmbedUrl.searchParams.set('format', 'json');
-
-    const response = await fetch(oEmbedUrl.toString());
-    if (!response.ok) return fallbackVideoData(videoId);
-
-    const data = await response.json();
-
-    return {
-      id: videoId,
-      title: data?.title || 'Trailer',
-      channelTitle: data?.author_name || 'YouTube',
-      publishedAt: '',
-      description: '',
-      thumbnail: data?.thumbnail_url || '',
-      views: '',
-      duration: '',
-      source: 'YouTube oEmbed'
-    };
+    return fallbackVideoData(videoId);
   } catch {
     return fallbackVideoData(videoId);
   }

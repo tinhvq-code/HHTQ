@@ -10,6 +10,7 @@ import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined
 import { Box, Button, IconButton, InputAdornment, Stack, TextField, Typography } from '@mui/material';
 import { setSessionUser } from '../services/authSession.js';
 import { loginUser } from '../services/userApi.js';
+import { addWelcomeNotification, scheduleAnimeNotifications } from '../services/notifications.js';
 import PhoneFrame from './PhoneFrame.js';
 
 export const authColors = {
@@ -121,38 +122,76 @@ export function SocialButton({ provider }) {
   const isGoogle = provider === 'Google';
   const isFacebook = provider === 'Facebook';
 
+  const handleGoogleSuccess = (credentialResponse) => {
+    try {
+      const userInfo = jwtDecode(credentialResponse.credential);
+
+      const user = {
+        id: userInfo.sub,
+        email: userInfo.email || '',
+        fullName: userInfo.name || 'Google User',
+        avatar: userInfo.picture || '',
+        provider: 'google'
+      };
+
+      setSessionUser(user);
+      addWelcomeNotification(user.fullName, false);
+      scheduleAnimeNotifications();
+
+      window.setTimeout(() => {
+        window.location.href = '/home';
+      }, 300);
+    } catch (error) {
+      console.error('Google register/login error:', error);
+      window.alert('Đăng nhập Google thất bại.');
+    }
+  };
+
   const handleClick = () => {
     if (isFacebook) {
       window.location.href = `${import.meta.env.VITE_API_BASE}/api/auth/facebook`;
-      return;
     }
-
-    window.alert(`${provider} chưa hỗ trợ đăng nhập.`);
   };
+
+  if (isGoogle) {
+    return (
+      <Box
+        sx={{
+          width: '100%',
+          overflow: 'hidden',
+          '& > div': { width: '100% !important' },
+          '& iframe': { width: '100% !important', maxWidth: '100% !important' }
+        }}
+      >
+        <GoogleLogin
+          width="100%"
+          onSuccess={handleGoogleSuccess}
+          onError={() => {
+            console.log('Google Login Failed');
+            window.alert('Đăng nhập Google thất bại.');
+          }}
+        />
+      </Box>
+    );
+  }
 
   return (
     <Button
       fullWidth
       variant="outlined"
       onClick={handleClick}
-      startIcon={
-        isGoogle ? (
-          <GoogleIcon sx={{ color: '#4285f4' }} />
-        ) : (
-          <FacebookRoundedIcon sx={{ color: '#4267b2' }} />
-        )
-      }
+      startIcon={<FacebookRoundedIcon sx={{ color: '#4267b2' }} />}
       sx={{
         height: { xs: 34, md: 44 },
-        borderColor: isFacebook ? '#4267b2' : authColors.fieldBorder,
+        borderColor: '#4267b2',
         color: '#d6d6d6',
         borderRadius: 0.75,
         fontSize: { xs: 12, md: 14 },
         fontWeight: 600,
         textTransform: 'none',
         '&:hover': {
-          borderColor: isFacebook ? '#4267b2' : '#4a4a4a',
-          bgcolor: isFacebook ? 'rgba(66, 103, 178, 0.08)' : 'rgba(255,255,255,0.02)'
+          borderColor: '#4267b2',
+          bgcolor: 'rgba(66, 103, 178, 0.08)'
         }
       }}
     >
@@ -160,7 +199,6 @@ export function SocialButton({ provider }) {
     </Button>
   );
 }
-
 export const normalizeEmail = (email) => email.trim().toLowerCase();
 
 export const getStoredUsers = () => [];
@@ -198,7 +236,8 @@ function LoginScreen({ variant = 'empty' }) {
       };
 
       setSessionUser(user);
-
+      addWelcomeNotification(user.fullName, false);
+      scheduleAnimeNotifications();
       setMessage('Đăng nhập Google thành công');
 
       setTimeout(() => {
@@ -233,6 +272,8 @@ function LoginScreen({ variant = 'empty' }) {
         const { user } = await loginUser({ email, password: values.password });
 
         setSessionUser(user);
+        addWelcomeNotification(user.fullName || user.email, false);
+        scheduleAnimeNotifications();
         setErrors({ email: '', password: '' });
         setMessage('Đăng nhập thành công.');
         window.setTimeout(() => {

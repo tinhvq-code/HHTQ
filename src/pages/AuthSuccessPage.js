@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { setSessionUser } from '../services/authSession.js';
+import { addWelcomeNotification, scheduleAnimeNotifications } from '../services/notifications.js';
 
 function decodeJwtPayload(token) {
     try {
@@ -57,6 +58,8 @@ function AuthSuccessPage() {
         };
 
         setSessionUser(user);
+        addWelcomeNotification(user.fullName, false);
+        scheduleAnimeNotifications();
         navigate('/home', { replace: true });
     }, [searchParams, navigate]);
 

@@ -1,8 +1,19 @@
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001';
+let apiUnavailableUntil = 0;
 
 const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
+const offlineError = () => {
+  const error = new Error('Máy chủ API chưa chạy. Dữ liệu sẽ được lưu tạm trên thiết bị.');
+  error.code = 'API_OFFLINE';
+  return error;
+};
+
 const requestJson = async (path, options = {}) => {
+  if (Date.now() < apiUnavailableUntil) {
+    throw offlineError();
+  }
+
   let lastError = null;
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -37,6 +48,14 @@ const requestJson = async (path, options = {}) => {
     throw new Error('Máy chủ phản hồi quá lâu, vui lòng thử lại.');
   }
 
+  if (
+    lastError instanceof TypeError ||
+    /failed to fetch|networkerror|load failed/i.test(String(lastError?.message || ''))
+  ) {
+    apiUnavailableUntil = Date.now() + 30000;
+    throw offlineError();
+  }
+
   throw new Error(lastError?.message || 'Không thể kết nối máy chủ.');
 };
 
@@ -63,5 +82,20 @@ export const updateUserProfile = (userId, payload) =>
 export const sendUserFeedback = (payload) =>
   requestJson('/api/feedback', {
     method: 'POST',
+    body: JSON.stringify(payload)
+  });
+
+export const fetchAnimeComments = (animeTitle, sessionId) =>
+  requestJson(`/api/anime-comments?animeTitle=${encodeURIComponent(animeTitle)}${sessionId ? `&sessionId=${encodeURIComponent(sessionId)}` : ''}`);
+
+export const postAnimeComment = (payload) =>
+  requestJson('/api/anime-comments', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+
+export const reactToComment = (commentId, payload) =>
+  requestJson(`/api/anime-comments/${commentId}/react`, {
+    method: 'PUT',
     body: JSON.stringify(payload)
   });

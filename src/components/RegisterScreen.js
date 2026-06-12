@@ -9,6 +9,7 @@ import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined
 import { Box, Button, InputAdornment, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { setSessionUser } from '../services/authSession.js';
 import { registerUser } from '../services/userApi.js';
+import { addWelcomeNotification, scheduleAnimeNotifications } from '../services/notifications.js';
 import { AuthInput, AuthTabs, SocialButton, authColors, authInputSx, normalizeEmail } from './LoginScreen.js';
 import PhoneFrame from './PhoneFrame.js';
 
@@ -128,6 +129,8 @@ function RegisterScreen({ variant = 'empty' }) {
       });
 
       setSessionUser(user, { resetUserData: true });
+      addWelcomeNotification(user.fullName || values.fullName, true);
+      scheduleAnimeNotifications();
       setMessage('Đăng ký thành công.');
       window.setTimeout(() => {
         window.location.href = '/home';

@@ -1,0 +1,34 @@
+HƯỚNG DẪN INJECT DATA VÀO MONGODB (CHO DỰ ÁN DÙNG SONG SONG SQL & MONGO)
+
+
+1. CHUẨN BỊ DỮ LIỆU (JSON)
+MongoDB lưu trữ dữ liệu dạng JSON. Hãy đảm bảo file dữ liệu của bạn có cấu trúc khớp với Schema trong `server.js`.
+Ví dụ mẫu (animeComments.json):
+[
+  {
+    "animeTitle": " ",
+    "userName": " ",
+    "content": " ",
+    "sessionId": " "
+  }
+]
+
+2. CÁCH INJECT DỮ LIỆU
+Bạn có 2 cách chính để nạp data vào MongoDB:
+
+Cách A: Sử dụng MongoDB Compass (Giao diện trực quan)
+- Mở MongoDB Compass, kết nối tới Database của bạn.
+- Chọn Collection (ví dụ: `comments`).
+- Chọn nút "Add Data" -> "Import JSON or CSV File".
+- Chọn file JSON đã chuẩn bị và nhấn Import.
+
+Cách B: Sử dụng script `mongoimport` (Dòng lệnh - nhanh nhất)
+Nếu bạn đã cài MongoDB Database Tools, hãy mở terminal tại thư mục chứa file:
+mongoimport --db <tên_database> --collection comments --file data.json --jsonArray
+
+LƯU Ý KHI DỰ ÁN CÓ SQL & MONGO:
+- Phân biệt rõ nguồn dữ liệu: SQL Server (`mssql`) thường dùng cho dữ liệu cấu trúc như Users, News. MongoDB (`mongoose`) dùng cho dữ liệu phi cấu trúc như Comments, Logs.
+- Kiểm tra Connection String: Trong `server.js`, đảm bảo biến môi trường `MONGODB_URI` đã trỏ đúng vào địa chỉ MongoDB của bạn.
+- Kiểm tra `isMongoReady()`: Code của bạn đang sử dụng hàm này để kiểm tra kết nối. Hãy chắc chắn MongoDB đã được bật (mongod service) trước khi khởi chạy server.
+
+Nếu bạn gặp lỗi khi nạp data, hãy kiểm tra lại định dạng file JSON (đảm bảo không thừa dấu phẩy) và chắc chắn tên Collection trong file khớp với tên trong code `mongoose.model('Comment', ...)`.

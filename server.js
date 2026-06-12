@@ -117,6 +117,20 @@ const initSqlTables = async (pool) => {
       );
     END;
 
+    IF OBJECT_ID('dbo.NewsArticles', 'U') IS NULL
+    BEGIN
+      CREATE TABLE dbo.NewsArticles (
+        id INT IDENTITY(1,1) PRIMARY KEY,
+        title NVARCHAR(255) NOT NULL,
+        content NVARCHAR(MAX) NOT NULL, -- Đây là chỗ chứa hàng ngàn chữ của bài báo nè
+        tag NVARCHAR(100) DEFAULT 'Tin Tức',
+        time NVARCHAR(50) DEFAULT 'Vừa xong',
+        views NVARCHAR(50) DEFAULT '0 lượt xem',
+        img NVARCHAR(MAX) NULL,
+        createdAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+      );
+    END;
+
     IF OBJECT_ID('dbo.AnimeComments', 'U') IS NULL
     BEGIN
       CREATE TABLE dbo.AnimeComments (
@@ -269,6 +283,30 @@ const commentSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// --- KHUNG DỮ LIỆU TIN TỨC CHO MONGODB ---
+const newsSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true },
+    content: { type: String, required: true }, 
+    tag: { type: String, default: 'Tin Tức' },
+    time: { type: String, default: 'Vừa xong' },
+    views: { type: String, default: '0 lượt xem' },
+    img: { type: String, default: '' }
+  },
+  { timestamps: true }
+);
+
+newsSchema.set('toJSON', {
+  virtuals: true,
+  transform: (doc, ret) => {
+    ret.id = String(ret._id);
+    delete ret._id;
+    delete ret.__v;
+  }
+});
+
+const News = mongoose.model('News', newsSchema);
 
 commentSchema.set('toJSON', {
   virtuals: true,
@@ -1137,5 +1175,47 @@ if (!process.env.VERCEL) {
     console.log(`API server running at http://localhost:${PORT}`);
   });
 }
+
+
+app.get('/api/news', async (req, res) => {
+  try {
+    if (isMongoReady()) {
+      const newsList = await News.find().sort({ createdAt: -1 });
+      return res.json({ news: newsList, source: 'mongodb' });
+    }
+    
+    if (isSqlReady()) {
+      const result = await sqlPool.request().query('SELECT * FROM dbo.NewsArticles ORDER BY createdAt DESC');
+      return res.json({ news: result.recordset, source: 'sql-server' });
+    }
+    
+    return res.json({ news: [], source: 'local-json-fallback' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Lỗi tải danh sách tin.', error: error.message });
+  }
+});
+
+
+app.get('/api/news/:id', async (req, res) => {
+  try {
+    const newsId = req.params.id;
+
+    if (isMongoReady() && /^[0-9a-f]{24}$/i.test(newsId)) {
+      const article = await News.findById(newsId);
+      if (article) return res.json({ article, source: 'mongodb' });
+    }
+
+    if (isSqlReady() && /^\d+$/.test(newsId)) {
+      const result = await sqlPool.request()
+        .input('id', sql.Int, Number(newsId))
+        .query('SELECT TOP 1 * FROM dbo.NewsArticles WHERE id = @id');
+      if (result.recordset[0]) return res.json({ article: result.recordset[0], source: 'sql-server' });
+    }
+
+    return res.status(404).json({ message: 'Không tìm thấy bài báo này.' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Lỗi tải bài báo.', error: error.message });
+  }
+});
 
 export default app;

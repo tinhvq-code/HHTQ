@@ -1,3 +1,4 @@
+import { fetchNewsList } from '../services/userApi.js';
 import { useEffect, useMemo, useState } from 'react';
 import { Box, Typography, IconButton, InputBase, Button } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -40,18 +41,21 @@ export default function NewsMenuPage() {
   useEffect(() => {
     let ignore = false;
 
-    fetchHomeAnime()
+    fetchNewsList()
       .then((data) => {
-        if (!ignore) setState({ items: data.news.map(toNewsItem), loading: false, error: '' });
+        if (!ignore) setState({ items: data.news, loading: false, error: '' });
       })
       .catch((error) => {
         if (!ignore) setState({ items: [], loading: false, error: error?.message || 'Không thể tải dữ liệu tin tức' });
       });
 
-    return () => {
-      ignore = true;
-    };
+    return () => { ignore = true; };
   }, []);
+
+  const openNewsDetail = (item) => {
+    window.localStorage.setItem('selectedNewsId', item.id);
+    navigate('/news-detail');
+  };
 
   const filteredItems = useMemo(() => {
     const keyword = searchText.trim().toLowerCase();
@@ -63,10 +67,6 @@ export default function NewsMenuPage() {
 
     return itemsByCategory.filter((item) => item.title.toLowerCase().includes(keyword));
   }, [activeCategory, searchText, state.items]);
-  const openNewsDetail = (item) => {
-    window.localStorage.setItem(selectedNewsKey, JSON.stringify(item));
-    navigate('/news-detail');
-  };
 
   return (
     <PageShell title="Danh sách Tin Tức">

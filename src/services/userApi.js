@@ -46,6 +46,12 @@ export const loginUser = (payload) =>
     body: JSON.stringify(payload)
   });
 
+export const loginWithGoogle = (accessToken) =>
+  requestJson('/api/auth/google', {
+    method: 'POST',
+    body: JSON.stringify({ accessToken })
+  });
+
 export const registerUser = (payload) =>
   requestJson('/api/auth/register', {
     method: 'POST',
@@ -65,3 +71,24 @@ export const sendUserFeedback = (payload) =>
     method: 'POST',
     body: JSON.stringify(payload)
   });
+
+export const fetchAnimeComments = (animeTitle, sessionId) =>
+  requestJson(`/api/anime-comments?animeTitle=${encodeURIComponent(animeTitle)}&sessionId=${encodeURIComponent(sessionId)}`);
+
+export const postAnimeComment = (payload) =>
+  requestJson('/api/anime-comments', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+
+export const reactToComment = (commentId, payload) =>
+  requestJson(`/api/anime-comments/${commentId}/react`, {
+    method: 'PUT', 
+    body: JSON.stringify(payload)
+  });
+
+// Cổng lấy danh sách tin tức từ Backend
+export const fetchNewsList = () => requestJson('/api/news');
+
+// Cổng lấy chi tiết 1 bài báo theo ID mẫu
+export const fetchNewsDetail = (id) => requestJson(`/api/news/${id}`);
